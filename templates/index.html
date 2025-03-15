@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trích xuất Khung hình Chính từ Video</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Trích xuất Khung hình Chính từ Video</h1>
+        <p>
+          Tải lên video hoặc nhập URL YouTube và chọn phương pháp trích xuất phù
+          hợp
+        </p>
+      </header>
+
+      <main>
+        <section class="upload-section">
+          <div class="upload-container" id="upload-container">
+            <div class="upload-tabs">
+              <div class="upload-tab active" data-tab="file-upload">
+                Tải lên File
+              </div>
+              <div class="upload-tab" data-tab="youtube-upload">Từ YouTube</div>
+            </div>
+
+            <div class="upload-content" id="file-upload">
+              <div class="upload-area" id="upload-area">
+                <div class="upload-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="48"
+                    height="48"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                </div>
+                <p>
+                  Kéo thả video vào đây hoặc
+                  <span class="browse-text">chọn file</span>
+                </p>
+                <input
+                  type="file"
+                  id="file-input"
+                  accept=".mp4,.avi,.mov,.mkv,.webm"
+                  hidden
+                />
+              </div>
+            </div>
+
+            <div
+              class="upload-content"
+              id="youtube-upload"
+              style="display: none"
+            >
+              <div class="youtube-form">
+                <div class="youtube-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="48"
+                    height="48"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"
+                    ></path>
+                    <polygon
+                      points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"
+                    ></polygon>
+                  </svg>
+                </div>
+                <label for="youtube-url">Nhập URL video YouTube:</label>
+                <input
+                  type="url"
+                  id="youtube-url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  class="youtube-input"
+                />
+                <p class="youtube-tip">
+                  Hỗ trợ các URL từ youtube.com hoặc youtu.be
+                </p>
+              </div>
+            </div>
+
+            <div class="method-selection">
+              <h3>Chọn phương pháp trích xuất</h3>
+              <div class="method-options">
+                <div class="method-option active" data-method="method1">
+                  <div class="method-icon">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <rect
+                        x="2"
+                        y="2"
+                        width="20"
+                        height="20"
+                        rx="2.18"
+                        ry="2.18"
+                      ></rect>
+                      <line x1="7" y1="2" x2="7" y2="22"></line>
+                      <line x1="17" y1="2" x2="17" y2="22"></line>
+                      <line x1="2" y1="12" x2="22" y2="12"></line>
+                      <line x1="2" y1="7" x2="7" y2="7"></line>
+                      <line x1="2" y1="17" x2="7" y2="17"></line>
+                      <line x1="17" y1="17" x2="22" y2="17"></line>
+                      <line x1="17" y1="7" x2="22" y2="7"></line>
+                    </svg>
+                  </div>
+                  <div class="method-details">
+                    <h4>Phương pháp 1: Phân tích sự thay đổi</h4>
+                    <p>
+                      Phát hiện các khung hình có sự thay đổi lớn so với khung
+                      hình trước đó.
+                    </p>
+                    <p>Phù hợp với video có chuyển động liên tục.</p>
+                  </div>
+                </div>
+                <div class="method-option" data-method="method2">
+                  <div class="method-icon">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <rect
+                        x="2"
+                        y="2"
+                        width="20"
+                        height="20"
+                        rx="2.18"
+                        ry="2.18"
+                      ></rect>
+                      <line x1="8" y1="2" x2="8" y2="22"></line>
+                      <line x1="16" y1="2" x2="16" y2="22"></line>
+                    </svg>
+                  </div>
+                  <div class="method-details">
+                    <h4>Phương pháp 2: Phát hiện chuyển cảnh</h4>
+                    <p>
+                      Phát hiện điểm chuyển cảnh và chọn khung hình đại diện cho
+                      mỗi cảnh.
+                    </p>
+                    <p>Phù hợp với video có nhiều cảnh riêng biệt.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings">
+              <h3>Tùy chỉnh tham số</h3>
+
+              <!-- Tham số chung -->
+              <div class="setting-item">
+                <label for="threshold">Ngưỡng phát hiện thay đổi:</label>
+                <input
+                  type="range"
+                  id="threshold"
+                  min="5"
+                  max="50"
+                  value="30"
+                  class="slider"
+                />
+                <span id="threshold-value">30</span>
+              </div>
+              <div class="setting-item">
+                <label for="max-frames">Số khung hình tối đa:</label>
+                <input
+                  type="number"
+                  id="max-frames"
+                  min="5"
+                  max="50"
+                  value="20"
+                />
+              </div>
+
+              <!-- Tham số riêng cho phương pháp 2 -->
+              <div class="setting-item method2-setting" style="display: none">
+                <label for="min-scene-length"
+                  >Độ dài tối thiểu của cảnh (frames):</label
+                >
+                <input
+                  type="number"
+                  id="min-scene-length"
+                  min="5"
+                  max="100"
+                  value="15"
+                />
+              </div>
+            </div>
+
+            <button id="extract-btn">Trích xuất Khung hình</button>
+          </div>
+
+          <div
+            class="progress-container"
+            id="progress-container"
+            style="display: none"
+          >
+            <div class="progress-bar">
+              <div class="progress" id="progress"></div>
+            </div>
+            <p id="progress-text">Đang xử lý...</p>
+            <div class="loading-spinner">
+              <img
+                src="{{ url_for('static', filename='img/loading.gif') }}"
+                alt="Loading"
+                width="50"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="results-section"
+          id="results-section"
+          style="display: none"
+        >
+          <h2>Kết quả trích xuất</h2>
+
+          <div class="results-header">
+            <div class="video-info" id="video-info">
+              <!-- Thông tin video sẽ được hiển thị ở đây -->
+            </div>
+
+            <div class="method-info" id="method-info">
+              <!-- Thông tin phương pháp sẽ được hiển thị ở đây -->
+            </div>
+          </div>
+
+          <div class="scenes-info" id="scenes-info" style="display: none">
+            <!-- Thông tin về các cảnh sẽ được hiển thị ở đây (chỉ cho phương pháp 2) -->
+          </div>
+
+          <h3>Các khung hình đã trích xuất</h3>
+          <div class="gallery" id="keyframes-gallery">
+            <!-- Các khung hình sẽ được hiển thị ở đây -->
+          </div>
+
+          <div class="actions">
+            <button id="download-all-btn">Tải xuống tất cả</button>
+            <button id="extract-script-btn">Trích xuất kịch bản</button>
+            <button id="new-video-btn">Xử lý video khác</button>
+          </div>
+
+          <!-- Phần hiển thị kịch bản -->
+          <div class="script-section" id="script-section" style="display: none">
+            <h3>Kịch bản được trích xuất</h3>
+
+            <div class="script-settings">
+              <div class="setting-item">
+                <label for="script-temperature"
+                  >Độ sáng tạo (Temperature):</label
+                >
+                <input
+                  type="range"
+                  id="script-temperature"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value="0.7"
+                  class="slider"
+                />
+                <span id="temperature-value">0.7</span>
+              </div>
+              <div class="temperature-info">
+                Temperature thấp (0.0-0.3): Chính xác, ít sáng tạo | Temperature
+                cao (0.8-1.0): Sáng tạo, đa dạng
+              </div>
+            </div>
+
+            <div class="script-loading" id="script-loading">
+              <p>Đang phân tích các khung hình và tạo kịch bản...</p>
+              <div class="loading-spinner">
+                <img
+                  src="{{ url_for('static', filename='img/loading.gif') }}"
+                  alt="Loading"
+                  width="50"
+                />
+              </div>
+            </div>
+            <div class="script-content" id="script-content">
+              <!-- Kịch bản sẽ được hiển thị ở đây -->
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p>&copy; 2025 Công cụ Trích xuất Khung hình Chính</p>
+      </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  </body>
+</html>
