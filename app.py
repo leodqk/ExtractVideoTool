@@ -7,12 +7,12 @@ import shutil
 import base64
 import google.generativeai as genai
 import subprocess
-import youtube_dl
 from flask import Flask, request, render_template, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 import logging
 from pytube import YouTube
 import re
+import yt_dlp  # Thay thế youtube_dl bằng yt-dlp
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -316,9 +316,10 @@ def extract_video_id(url):
         return match.group(6)
     return None
 
+
 def download_youtube_video(youtube_url):
     """
-    Tải video từ YouTube sử dụng kết hợp cả pytube và youtube-dl
+    Tải video từ YouTube sử dụng yt-dlp (thay thế cho youtube-dl)
     """
     try:
         # Tạo thư mục tạm thời để lưu video
@@ -331,82 +332,57 @@ def download_youtube_video(youtube_url):
         # Tạo URL tiêu chuẩn từ video ID
         standard_url = f"https://www.youtube.com/watch?v={video_id}"
         
-        # Phương pháp 1: Sử dụng pytube
-        try:
-            logging.info(f"Đang tải video YouTube với pytube: {standard_url}")
-            yt = YouTube(standard_url)
-            video_title = yt.title
+        # Cấu hình yt-dlp để tải video dưới dạng định dạng đơn (không cần ffmpeg)
+        ydl_opts = {
+            # Chọn định dạng mp4 đã ghép sẵn (không cần ffmpeg để ghép)
+            'format': 'best[ext=mp4]/best',
+            'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
+            'noplaylist': True,
+            'quiet': False,
+            'no_warnings': False,
+            'ignoreerrors': False,
+        }
+        
+        # Tải video sử dụng yt-dlp
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(standard_url, download=True)
+            video_title = info_dict.get('title', 'youtube_video')
+            video_path = ydl.prepare_filename(info_dict)
             
-            # Lấy stream có độ phân giải cao nhất (nhưng không quá 720p để tiết kiệm thời gian)
-            stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-            
-            if not stream:
-                # Nếu không có stream progressive, lấy stream video có độ phân giải cao nhất
-                stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
-            
-            if stream:
-                # Tải video về thư mục tạm thời
-                video_path = stream.download(output_path=temp_dir)
-                logging.info(f"Tải thành công video với pytube: {video_path}")
-            else:
-                raise Exception("Không tìm thấy stream phù hợp với pytube")
-                
-        except Exception as e:
-            logging.error(f"Lỗi khi tải với pytube: {str(e)}")
-            
-            # Phương pháp 2: Sử dụng youtube-dl
-            try:
-                logging.info(f"Đang tải video YouTube với youtube-dl: {standard_url}")
-                ydl_opts = {
-                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                    'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
-                    'noplaylist': True,
-                }
-                
-                with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-                    info_dict = ydl.extract_info(standard_url, download=True)
-                    video_title = info_dict.get('title', 'youtube_video')
-                    video_path = ydl.prepare_filename(info_dict)
-                    logging.info(f"Tải thành công video với youtube-dl: {video_path}")
-            except Exception as youtube_dl_error:
-                logging.error(f"Lỗi khi tải với youtube-dl: {str(youtube_dl_error)}")
-                
-                # Phương pháp 3: Sử dụng subprocess gọi youtube-dl
-                try:
-                    logging.info(f"Đang tải video YouTube với subprocess youtube-dl: {standard_url}")
-                    output_template = os.path.join(temp_dir, "%(title)s.%(ext)s")
-                    subprocess_command = [
-                        "youtube-dl", 
-                        "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-                        "-o", output_template,
-                        "--no-playlist",
-                        standard_url
-                    ]
-                    
-                    process = subprocess.Popen(
-                        subprocess_command,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        universal_newlines=True
-                    )
-                    
-                    stdout, stderr = process.communicate()
-                    
-                    if process.returncode != 0:
-                        raise Exception(f"youtube-dl process failed: {stderr}")
-                    
-                    # Tìm file được tải xuống trong thư mục
-                    files = os.listdir(temp_dir)
-                    if not files:
-                        raise Exception("Không tìm thấy file sau khi tải xuống")
-                    
+            # Kiểm tra nếu file không tồn tại sau khi tải
+            if not os.path.exists(video_path):
+                # Thử tìm file trong thư mục
+                files = os.listdir(temp_dir)
+                if files:
                     video_path = os.path.join(temp_dir, files[0])
-                    video_title = os.path.splitext(files[0])[0]
-                    logging.info(f"Tải thành công video với subprocess youtube-dl: {video_path}")
-                    
-                except Exception as subprocess_error:
-                    logging.error(f"Lỗi khi tải với subprocess youtube-dl: {str(subprocess_error)}")
-                    raise Exception("Không thể tải video từ YouTube sau khi thử tất cả các phương pháp")
+                else:
+                    raise Exception("Không tìm thấy file sau khi tải xuống")
+                
+            logging.info(f"Tải thành công video với yt-dlp: {video_path}")
+        
+        # Phương pháp 2: Thử với pytube nếu yt-dlp thất bại
+        if not os.path.exists(video_path):
+            try:
+                logging.info(f"Thử lại với pytube: {standard_url}")
+                yt = YouTube(standard_url)
+                video_title = yt.title
+                
+                # Lấy stream có độ phân giải cao nhất (nhưng không quá 720p để tiết kiệm thời gian)
+                stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+                
+                if not stream:
+                    # Nếu không có stream progressive, lấy stream video có độ phân giải cao nhất
+                    stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
+                
+                if stream:
+                    # Tải video về thư mục tạm thời
+                    video_path = stream.download(output_path=temp_dir)
+                    logging.info(f"Tải thành công video với pytube: {video_path}")
+                else:
+                    raise Exception("Không tìm thấy stream phù hợp với pytube")
+            except Exception as pytube_error:
+                logging.error(f"Lỗi khi tải với pytube: {str(pytube_error)}")
+                raise Exception(f"Không thể tải video từ YouTube với cả yt-dlp và pytube")
         
         # Tạo tên file an toàn
         safe_title = secure_filename(video_title)
@@ -433,6 +409,7 @@ def download_youtube_video(youtube_url):
         if 'temp_dir' in locals() and os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
         raise Exception(f"Không thể tải video từ YouTube: {str(e)}")
+
 
 @app.route('/')
 def index():
