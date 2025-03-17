@@ -24,6 +24,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const uploadTabs = document.querySelectorAll(".upload-tab");
   const uploadContents = document.querySelectorAll(".upload-content");
   const youtubeUrlInput = document.getElementById("youtube-url");
+  const tiktokUrlInput = document.getElementById("tiktok-url");
   const scriptSection = document.getElementById("script-section");
   const scriptLoading = document.getElementById("script-loading");
   const scriptContent = document.getElementById("script-content");
@@ -169,6 +170,12 @@ document.addEventListener("DOMContentLoaded", function () {
         showError("Vui lòng nhập URL video YouTube");
         return;
       }
+    } else if (activeUploadMethod === "tiktok-upload") {
+      const tiktokUrl = tiktokUrlInput.value.trim();
+      if (!tiktokUrl) {
+        showError("Vui lòng nhập URL video TikTok");
+        return;
+      }
     }
 
     // Show progress
@@ -180,8 +187,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (activeUploadMethod === "file-upload") {
       formData.append("video", selectedFile);
-    } else {
-      formData.append("youtube_url", youtubeUrlInput.value.trim());
+    } else if (activeUploadMethod === "youtube-upload") {
+      formData.append("video_url", youtubeUrlInput.value.trim());
+    } else if (activeUploadMethod === "tiktok-upload") {
+      formData.append("video_url", tiktokUrlInput.value.trim());
     }
 
     formData.append("method", selectedMethod);
@@ -191,16 +200,15 @@ document.addEventListener("DOMContentLoaded", function () {
     if (selectedMethod === "method2") {
       formData.append("min_scene_length", minSceneLengthInput.value);
     }
-
     // Simulate progress
     let progressValue = 0;
     const progressInterval = setInterval(() => {
       if (progressValue < 90) {
         progressValue +=
-          Math.random() * (activeUploadMethod === "youtube-upload" ? 1 : 4);
+          Math.random() * (activeUploadMethod !== "file-upload" ? 1 : 4);
         progress.style.width = `${progressValue}%`;
         progressText.textContent = `Đang ${
-          activeUploadMethod === "youtube-upload" ? "tải video YouTube và " : ""
+          activeUploadMethod !== "file-upload" ? "tải video và " : ""
         }xử lý... ${Math.round(progressValue)}%`;
       }
     }, 500);
@@ -263,8 +271,10 @@ document.addEventListener("DOMContentLoaded", function () {
     // Add to DOM
     if (activeUploadMethod === "file-upload") {
       uploadArea.parentNode.appendChild(errorDiv);
-    } else {
+    } else if (activeUploadMethod === "youtube-upload") {
       document.querySelector(".youtube-form").appendChild(errorDiv);
+    } else if (activeUploadMethod === "tiktok-upload") {
+      document.querySelector(".tiktok-form").appendChild(errorDiv);
     }
   }
 
@@ -279,39 +289,59 @@ document.addEventListener("DOMContentLoaded", function () {
     const minutes = Math.floor(data.duration / 60);
     const seconds = Math.round(data.duration % 60);
 
-    // Check if video is from YouTube
-    const isYouTube = data.youtube_url !== undefined;
+    // Check if video is from an online source
+    const isYouTube = data.video_source === "YouTube";
+    const isTikTok = data.video_source === "TikTok";
 
     let videoInfoHTML = `
-          <h4>Thông tin video</h4>
-          <p><strong>Tên file:</strong> ${data.filename}</p>
-          <p><strong>Thời lượng:</strong> ${minutes}:${
+              <h4>Thông tin video</h4>
+              <p><strong>Tên file:</strong> ${data.filename}</p>
+              <p><strong>Thời lượng:</strong> ${minutes}:${
       seconds < 10 ? "0" + seconds : seconds
     }</p>
-          <p><strong>Kích thước:</strong> ${data.width} x ${data.height}</p>
-          <p><strong>Tổng số khung hình:</strong> ${data.total_frames}</p>
-          <p><strong>FPS:</strong> ${data.fps.toFixed(2)}</p>
-      `;
+              <p><strong>Kích thước:</strong> ${data.width} x ${data.height}</p>
+              <p><strong>Tổng số khung hình:</strong> ${data.total_frames}</p>
+              <p><strong>FPS:</strong> ${data.fps.toFixed(2)}</p>
+          `;
 
     if (isYouTube) {
       videoInfoHTML += `
-              <div class="youtube-info">
-                  <div class="youtube-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path>
-                          <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
-                      </svg>
+                  <div class="youtube-info">
+                      <div class="youtube-icon">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path>
+                              <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
+                          </svg>
+                      </div>
+                      <div>
+                          <p><strong>Nguồn:</strong> YouTube</p>
+                          ${
+                            data.video_title
+                              ? `<p><strong>Tiêu đề:</strong> ${data.video_title}</p>`
+                              : ""
+                          }
+                      </div>
                   </div>
-                  <div>
-                      <p><strong>Nguồn:</strong> YouTube</p>
-                      ${
-                        data.youtube_title
-                          ? `<p><strong>Tiêu đề:</strong> ${data.youtube_title}</p>`
-                          : ""
-                      }
+              `;
+    } else if (isTikTok) {
+      videoInfoHTML += `
+                  <div class="tiktok-info">
+                      <div class="tiktok-icon">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M21 8v8a5 5 0 01-5 5H8a5 5 0 01-5-5V8a5 5 0 015-5h8a5 5 0 015 5z"></path>
+                              <path d="M10 12a3 3 0 103 3V6c.333 1 1.6 3 4 3"></path>
+                          </svg>
+                      </div>
+                      <div>
+                          <p><strong>Nguồn:</strong> TikTok</p>
+                          ${
+                            data.video_title
+                              ? `<p><strong>Tiêu đề:</strong> ${data.video_title}</p>`
+                              : ""
+                          }
+                      </div>
                   </div>
-              </div>
-          `;
+              `;
     }
 
     videoInfo.innerHTML = videoInfoHTML;
@@ -319,24 +349,26 @@ document.addEventListener("DOMContentLoaded", function () {
     // Display method info
     if (data.method === "frame_difference") {
       methodInfo.innerHTML = `
-              <h4>Phương pháp trích xuất</h4>
-              <p><strong>Phương pháp:</strong> Phân tích sự thay đổi giữa các khung hình</p>
-              <p><strong>Ngưỡng phát hiện:</strong> ${thresholdSlider.value}</p>
-              <p><strong>Số khung hình đã trích xuất:</strong> ${data.keyframes.length}</p>
-          `;
+                  <h4>Phương pháp trích xuất</h4>
+                  <p><strong>Phương pháp:</strong> Phân tích sự thay đổi giữa các khung hình</p>
+                  <p><strong>Ngưỡng phát hiện:</strong> ${thresholdSlider.value}</p>
+                  <p><strong>Số khung hình đã trích xuất:</strong> ${data.keyframes.length}</p>
+              `;
       scenesInfo.style.display = "none";
     } else {
       methodInfo.innerHTML = `
-              <h4>Phương pháp trích xuất</h4>
-              <p><strong>Phương pháp:</strong> Phát hiện chuyển cảnh</p>
-              <p><strong>Ngưỡng phát hiện:</strong> ${thresholdSlider.value}</p>
-              <p><strong>Độ dài tối thiểu cảnh:</strong> ${
-                minSceneLengthInput.value
-              } frames</p>
-              <p><strong>Số cảnh đã phát hiện:</strong> ${
-                data.scenes ? data.scenes.length : 0
-              }</p>
-          `;
+                  <h4>Phương pháp trích xuất</h4>
+                  <p><strong>Phương pháp:</strong> Phát hiện chuyển cảnh</p>
+                  <p><strong>Ngưỡng phát hiện:</strong> ${
+                    thresholdSlider.value
+                  }</p>
+                  <p><strong>Độ dài tối thiểu cảnh:</strong> ${
+                    minSceneLengthInput.value
+                  } frames</p>
+                  <p><strong>Số cảnh đã phát hiện:</strong> ${
+                    data.scenes ? data.scenes.length : 0
+                  }</p>
+              `;
 
       // Display scenes info
       if (data.scenes && data.scenes.length > 0) {
@@ -345,18 +377,18 @@ document.addEventListener("DOMContentLoaded", function () {
           const startTime = formatTime(scene.start / data.fps);
           const endTime = formatTime(scene.end / data.fps);
           sceneListHTML += `
-                      <div class="scene-item">
-                          <strong>Cảnh ${index + 1}:</strong> 
-                          Từ ${startTime} đến ${endTime} 
-                          (${scene.length} frames)
-                      </div>
-                  `;
+                          <div class="scene-item">
+                              <strong>Cảnh ${index + 1}:</strong> 
+                              Từ ${startTime} đến ${endTime} 
+                              (${scene.length} frames)
+                          </div>
+                      `;
         });
 
         scenesInfo.innerHTML = `
-                  <div class="scenes-summary">Đã phát hiện ${data.scenes.length} cảnh trong video</div>
-                  <div class="scene-list">${sceneListHTML}</div>
-              `;
+                      <div class="scenes-summary">Đã phát hiện ${data.scenes.length} cảnh trong video</div>
+                      <div class="scene-list">${sceneListHTML}</div>
+                  `;
         scenesInfo.style.display = "block";
       } else {
         scenesInfo.style.display = "none";
@@ -389,29 +421,29 @@ document.addEventListener("DOMContentLoaded", function () {
         const imagePath = `/static/${frame.path}`;
 
         keyframeElement.innerHTML = `
-                  ${labelHTML}
-                  <img src="${imagePath}" alt="Khung hình ${
+                      ${labelHTML}
+                      <img src="${imagePath}" alt="Khung hình ${
           frame.frame_number
         }" loading="lazy">
-                  <div class="keyframe-info">
-                      <p><strong>Thời điểm:</strong> ${timeString}</p>
-                      <div class="keyframe-meta">
-                          <span>Frame #${frame.frame_number}</span>
-                          ${
-                            data.method === "scene_detection"
-                              ? `<span>Cảnh #${frame.scene_id}</span>`
-                              : `<span>Độ khác biệt: ${
-                                  frame.diff_value
-                                    ? frame.diff_value.toFixed(2)
-                                    : "N/A"
-                                }</span>`
-                          }
+                      <div class="keyframe-info">
+                          <p><strong>Thời điểm:</strong> ${timeString}</p>
+                          <div class="keyframe-meta">
+                              <span>Frame #${frame.frame_number}</span>
+                              ${
+                                data.method === "scene_detection"
+                                  ? `<span>Cảnh #${frame.scene_id}</span>`
+                                  : `<span>Độ khác biệt: ${
+                                      frame.diff_value
+                                        ? frame.diff_value.toFixed(2)
+                                        : "N/A"
+                                    }</span>`
+                              }
+                          </div>
+                          <button class="generate-image-btn" data-frame-path="${
+                            frame.path
+                          }">Tạo ảnh mới</button>
                       </div>
-                      <button class="generate-image-btn" data-frame-path="${
-                        frame.path
-                      }">Tạo ảnh mới</button>
-                  </div>
-              `;
+                  `;
 
         // Add click event to open full image
         keyframeElement
@@ -446,37 +478,37 @@ document.addEventListener("DOMContentLoaded", function () {
     modal.className = "modal";
 
     modal.innerHTML = `
-      <div class="modal-header">
-        <h3>Tạo ảnh mới từ khung hình</h3>
-        <button class="close-btn">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="image-preview">
-          <img src="/static/${framePath}" alt="Khung hình gốc">
-        </div>
-        <div class="generation-form">
-          <div class="form-group">
-            <label for="image-prompt">Mô tả ảnh mới:</label>
-            <textarea id="image-prompt" rows="3" placeholder="Mô tả ảnh bạn muốn tạo từ khung hình này...">Tạo một phiên bản nghệ thuật của hình ảnh này</textarea>
+          <div class="modal-header">
+            <h3>Tạo ảnh mới từ khung hình</h3>
+            <button class="close-btn">&times;</button>
           </div>
-          <div class="form-group">
-            <label for="image-style">Phong cách:</label>
-            <select id="image-style">
-              <option value="digital art">Digital Art</option>
-              <option value="oil painting">Oil Painting</option>
-              <option value="watercolor">Watercolor</option>
-              <option value="sketch">Sketch</option>
-              <option value="anime">Anime</option>
-              <option value="photorealistic">Photorealistic</option>
-              <option value="3D render">3D Render</option>
-            </select>
+          <div class="modal-body">
+            <div class="image-preview">
+              <img src="/static/${framePath}" alt="Khung hình gốc">
+            </div>
+            <div class="generation-form">
+              <div class="form-group">
+                <label for="image-prompt">Mô tả ảnh mới:</label>
+                <textarea id="image-prompt" rows="3" placeholder="Mô tả ảnh bạn muốn tạo từ khung hình này...">Tạo một phiên bản nghệ thuật của hình ảnh này</textarea>
+              </div>
+              <div class="form-group">
+                <label for="image-style">Phong cách:</label>
+                <select id="image-style">
+                  <option value="digital art">Digital Art</option>
+                  <option value="oil painting">Oil Painting</option>
+                  <option value="watercolor">Watercolor</option>
+                  <option value="sketch">Sketch</option>
+                  <option value="anime">Anime</option>
+                  <option value="photorealistic">Photorealistic</option>
+                  <option value="3D render">3D Render</option>
+                </select>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="generate-btn" data-frame-path="${framePath}">Tạo ảnh</button>
-      </div>
-    `;
+          <div class="modal-footer">
+            <button id="generate-btn" data-frame-path="${framePath}">Tạo ảnh</button>
+          </div>
+        `;
 
     modalOverlay.appendChild(modal);
     document.body.appendChild(modalOverlay);
@@ -503,14 +535,14 @@ document.addEventListener("DOMContentLoaded", function () {
       // Show generated images section with loading
       generatedImagesSection.style.display = "block";
       generatedImagesSection.innerHTML = `
-        <h3>Ảnh được tạo ra</h3>
-        <div class="loading-container">
-          <p>Đang tạo ảnh mới, vui lòng đợi...</p>
-          <div class="loading-spinner">
-            <img src="/static/img/loading.gif" alt="Loading" width="50">
-          </div>
-        </div>
-      `;
+            <h3>Ảnh được tạo ra</h3>
+            <div class="loading-container">
+              <p>Đang tạo ảnh mới, vui lòng đợi...</p>
+              <div class="loading-spinner">
+                <img src="/static/img/loading.gif" alt="Loading" width="50">
+              </div>
+            </div>
+          `;
 
       // Scroll to generated images section
       generatedImagesSection.scrollIntoView({ behavior: "smooth" });
@@ -548,27 +580,27 @@ document.addEventListener("DOMContentLoaded", function () {
       .catch((error) => {
         console.error("Error:", error);
         generatedImagesSection.innerHTML = `
-        <h3>Ảnh được tạo ra</h3>
-        <div class="error-message">
-          <p><strong>Lỗi khi tạo ảnh mới:</strong> ${error.message}</p>
-          <p>Vui lòng thử lại sau.</p>
-        </div>
-      `;
+            <h3>Ảnh được tạo ra</h3>
+            <div class="error-message">
+              <p><strong>Lỗi khi tạo ảnh mới:</strong> ${error.message}</p>
+              <p>Vui lòng thử lại sau.</p>
+            </div>
+          `;
       });
   }
 
   // Display generated images
   function displayGeneratedImages(data) {
     generatedImagesSection.innerHTML = `
-      <h3>Ảnh được tạo ra</h3>
-      <div class="generation-info">
-        <p><strong>Prompt:</strong> ${data.prompt}</p>
-        <p><strong>Phong cách:</strong> ${data.style}</p>
-      </div>
-      <div class="generated-gallery" id="generated-gallery">
-        <!-- Generated images will be displayed here -->
-      </div>
-    `;
+          <h3>Ảnh được tạo ra</h3>
+          <div class="generation-info">
+            <p><strong>Prompt:</strong> ${data.prompt}</p>
+            <p><strong>Phong cách:</strong> ${data.style}</p>
+          </div>
+          <div class="generated-gallery" id="generated-gallery">
+            <!-- Generated images will be displayed here -->
+          </div>
+        `;
 
     const generatedGallery = document.getElementById("generated-gallery");
     if (data.generated_images && data.generated_images.length > 0) {
@@ -580,11 +612,11 @@ document.addEventListener("DOMContentLoaded", function () {
         const imagePath = `/static/${image.path}`;
 
         imageElement.innerHTML = `
-          <img src="${imagePath}" alt="Ảnh được tạo" loading="lazy">
-          <div class="image-actions">
-            <button class="download-image-btn" data-path="${imagePath}">Tải xuống</button>
-          </div>
-        `;
+              <img src="${imagePath}" alt="Ảnh được tạo" loading="lazy">
+              <div class="image-actions">
+                <button class="download-image-btn" data-path="${imagePath}">Tải xuống</button>
+              </div>
+            `;
 
         // Add click event to open full image
         imageElement
@@ -670,16 +702,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Format và hiển thị nội dung
         const scriptHTML = `
-              <p><strong>Phân tích ${
-                data.num_frames_analyzed
-              } khung hình</strong> (Temperature: ${data.temperature})</p>
-              <div class="script-prompt">
-                  <em>Prompt: "${data.prompt}"</em>
-              </div>
-              <div class="script-text">
-                  ${formatScriptText(data.script)}
-              </div>
-          `;
+                  <p><strong>Phân tích ${
+                    data.num_frames_analyzed
+                  } khung hình</strong> (Temperature: ${data.temperature})</p>
+                  <div class="script-prompt">
+                      <em>Prompt: "${data.prompt}"</em>
+                  </div>
+                  <div class="script-text">
+                      ${formatScriptText(data.script)}
+                  </div>
+              `;
 
         scriptContent.innerHTML = scriptHTML;
       })
@@ -688,11 +720,11 @@ document.addEventListener("DOMContentLoaded", function () {
         scriptLoading.style.display = "none";
         scriptContent.style.display = "block";
         scriptContent.innerHTML = `
-              <div class="error-message">
-                  <p><strong>Lỗi khi trích xuất kịch bản:</strong> ${error.message}</p>
-                  <p>Vui lòng thử lại sau.</p>
-              </div>
-          `;
+                  <div class="error-message">
+                      <p><strong>Lỗi khi trích xuất kịch bản:</strong> ${error.message}</p>
+                      <p>Vui lòng thử lại sau.</p>
+                  </div>
+              `;
       });
   });
 
@@ -743,18 +775,23 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Reset file upload area
     uploadArea.innerHTML = `
-          <div class="upload-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="17 8 12 3 7 8"></polyline>
-                  <line x1="12" y1="3" x2="12" y2="15"></line>
-              </svg>
-          </div>
-          <p>Kéo thả video vào đây hoặc <span class="browse-text">chọn file</span></p>
-      `;
+              <div class="upload-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+              </div>
+              <p>Kéo thả video vào đây hoặc <span class="browse-text">chọn file</span></p>
+          `;
 
     // Reset YouTube input
     youtubeUrlInput.value = "";
+
+    // Reset TikTok input
+    if (tiktokUrlInput) {
+      tiktokUrlInput.value = "";
+    }
 
     // Reset variables
     selectedFile = null;

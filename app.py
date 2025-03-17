@@ -16,6 +16,7 @@ import yt_dlp  # Thay thế youtube_dl bằng yt-dlp
 import requests
 from PIL import Image
 from io import BytesIO
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -361,156 +362,112 @@ def extract_video_id(url):
     
     return None
 
-def download_youtube_video(youtube_url):
+def extract_tiktok_id(url):
+    """Extract TikTok video ID from various TikTok URL formats"""
+    # Parse the URL
+    parsed_url = urlparse(url)
+    
+    # Check if it's a TikTok domain
+    if not ('tiktok.com' in parsed_url.netloc or 'vm.tiktok.com' in parsed_url.netloc):
+        return None
+    
+    # Handle shortened URLs (vm.tiktok.com)
+    if 'vm.tiktok.com' in parsed_url.netloc:
+        # For shortened URLs, we need to follow the redirect
+        try:
+            response = requests.head(url, allow_redirects=True)
+            redirect_url = response.url
+            return extract_tiktok_id(redirect_url)
+        except:
+            return None
+    
+    # Regular TikTok URLs
+    path_parts = parsed_url.path.strip('/').split('/')
+    
+    # Format: tiktok.com/@username/video/1234567890
+    if len(path_parts) >= 3 and path_parts[1] == 'video':
+        return path_parts[2]
+    
+    # Format: tiktok.com/t/1234567890
+    if len(path_parts) >= 2 and path_parts[0] == 't':
+        return path_parts[1]
+    
+    return None
+
+def download_video_from_url(video_url):
     """
-    Tải video từ YouTube sử dụng yt-dlp với hỗ trợ cho YouTube Shorts
+    Download video from YouTube or TikTok URL using yt-dlp
     """
     try:
-        # Tạo thư mục tạm thời để lưu video
+        # Check if it's a TikTok URL
+        is_tiktok = 'tiktok.com' in video_url or 'vm.tiktok.com' in video_url
+        
+        # Create a temporary directory to save the video
         temp_dir = tempfile.mkdtemp()
         
-        # Xử lý đặc biệt cho YouTube Shorts
-        if 'shorts' in youtube_url:
-            # Nếu URL có dạng youtube.com/watch?v=shorts/ID, chuyển thành youtube.com/shorts/ID
-            if 'watch?v=shorts' in youtube_url:
-                video_id = youtube_url.split('watch?v=shorts/')[1].split('&')[0]
-                youtube_url = f"https://www.youtube.com/shorts/{video_id}"
-            
-            # Nếu URL có dạng youtube.com/shorts/ID, sử dụng trực tiếp
-            logging.info(f"Phát hiện YouTube Shorts URL: {youtube_url}")
-        else:
-            # Trích xuất ID và tạo URL tiêu chuẩn cho video thông thường
-            video_id = extract_video_id(youtube_url)
-            if not video_id:
-                raise Exception("Không thể trích xuất ID video từ URL")
-            youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+        logging.info(f"Downloading video from: {video_url} (TikTok: {is_tiktok})")
         
-        logging.info(f"Đang tải video từ URL: {youtube_url}")
-        
-        # Phương pháp 1: Sử dụng yt-dlp
-        try:
-            # Cấu hình yt-dlp
-            ydl_opts = {
-                'format': 'best[ext=mp4]/best',
-                'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
-                'noplaylist': True,
-                'quiet': False,
-                'no_warnings': False,
-                'ignoreerrors': False,
-            }
-            
-            # Tải video sử dụng yt-dlp
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info_dict = ydl.extract_info(youtube_url, download=True)
-                video_title = info_dict.get('title', 'youtube_video')
-                video_path = ydl.prepare_filename(info_dict)
-                
-                # Kiểm tra nếu file không tồn tại sau khi tải
-                if not os.path.exists(video_path):
-                    # Thử tìm file trong thư mục
-                    files = os.listdir(temp_dir)
-                    if files:
-                        video_path = os.path.join(temp_dir, files[0])
-                    else:
-                        raise Exception("Không tìm thấy file sau khi tải xuống")
-                    
-                logging.info(f"Tải thành công video với yt-dlp: {video_path}")
-        except Exception as ydl_error:
-            logging.error(f"Lỗi khi tải với yt-dlp: {str(ydl_error)}")
-            
-            # Phương pháp 2: Thử với pytube
-            try:
-                logging.info(f"Thử lại với pytube: {youtube_url}")
-                yt = YouTube(youtube_url)
-                video_title = yt.title
-                
-                # Lấy stream có độ phân giải cao nhất (nhưng không quá 720p để tiết kiệm thời gian)
-                stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-                
-                if not stream:
-                    # Nếu không có stream progressive, lấy stream video có độ phân giải cao nhất
-                    stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
-                
-                if not stream:
-                    # Nếu vẫn không có, lấy bất kỳ stream nào
-                    stream = yt.streams.first()
-                
-                if stream:
-                    # Tải video về thư mục tạm thời
-                    video_path = stream.download(output_path=temp_dir)
-                    logging.info(f"Tải thành công video với pytube: {video_path}")
-                else:
-                    raise Exception("Không tìm thấy stream phù hợp với pytube")
-            except Exception as pytube_error:
-                logging.error(f"Lỗi khi tải với pytube: {str(pytube_error)}")
-                
-                # Phương pháp 3: Thử với subprocess gọi yt-dlp
-                try:
-                    logging.info(f"Thử lại với subprocess yt-dlp: {youtube_url}")
-                    output_template = os.path.join(temp_dir, "video.mp4")
-                    subprocess_command = [
-                        "yt-dlp", 
-                        "-f", "best[ext=mp4]/best",
-                        "-o", output_template,
-                        "--no-playlist",
-                        youtube_url
-                    ]
-                    
-                    process = subprocess.Popen(
-                        subprocess_command,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        universal_newlines=True
-                    )
-                    
-                    stdout, stderr = process.communicate()
-                    
-                    if process.returncode != 0:
-                        raise Exception(f"yt-dlp process failed: {stderr}")
-                    
-                    video_path = output_template
-                    video_title = "YouTube Video"
-                    
-                    if not os.path.exists(video_path):
-                        # Thử tìm file trong thư mục
-                        files = os.listdir(temp_dir)
-                        if files:
-                            video_path = os.path.join(temp_dir, files[0])
-                            video_title = os.path.splitext(files[0])[0]
-                        else:
-                            raise Exception("Không tìm thấy file sau khi tải xuống")
-                    
-                    logging.info(f"Tải thành công video với subprocess yt-dlp: {video_path}")
-                    
-                except Exception as subprocess_error:
-                    logging.error(f"Lỗi khi tải với subprocess yt-dlp: {str(subprocess_error)}")
-                    raise Exception("Không thể tải video từ YouTube sau khi thử tất cả các phương pháp")
-        
-        # Tạo tên file an toàn
-        safe_title = secure_filename(video_title)
-        if not safe_title:
-            safe_title = "youtube_video"
-        
-        # Đường dẫn đến file trong thư mục uploads
-        dest_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{safe_title}.mp4")
-        
-        # Di chuyển file từ thư mục tạm thời đến thư mục uploads
-        shutil.copy2(video_path, dest_path)
-        
-        # Xóa thư mục tạm thời
-        shutil.rmtree(temp_dir)
-        
-        return {
-            'path': dest_path,
-            'title': video_title,
-            'filename': f"{safe_title}.mp4"
+        # Configure yt-dlp options
+        ydl_opts = {
+            'format': 'best[ext=mp4]/best',
+            'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
+            'noplaylist': True,
+            'quiet': False,
+            'no_warnings': False,
+            'ignoreerrors': False,
         }
+        
+        # Download video using yt-dlp
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(video_url, download=True)
+            video_title = info_dict.get('title', 'downloaded_video')
+            video_path = ydl.prepare_filename(info_dict)
+            
+            # Check if file exists after download
+            if not os.path.exists(video_path):
+                # Try to find file in directory
+                files = os.listdir(temp_dir)
+                if files:
+                    video_path = os.path.join(temp_dir, files[0])
+                else:
+                    raise Exception("No file found after download")
+                    
+            logging.info(f"Successfully downloaded video with yt-dlp: {video_path}")
+            
+            # Create safe filename
+            safe_title = secure_filename(video_title)
+            if not safe_title:
+                safe_title = "downloaded_video"
+            
+            # Path to file in uploads folder
+            dest_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{safe_title}.mp4")
+            
+            # Copy file from temp directory to uploads folder
+            shutil.copy2(video_path, dest_path)
+            
+            # Clean up temp directory
+            shutil.rmtree(temp_dir)
+            
+            # Determine video source
+            source = "TikTok" if is_tiktok else "YouTube"
+            
+            return {
+                'path': dest_path,
+                'title': video_title,
+                'filename': f"{safe_title}.mp4",
+                'source': source
+            }
+    
     except Exception as e:
-        logging.error(f"Lỗi khi tải video YouTube: {str(e)}")
-        # Xóa thư mục tạm nếu còn tồn tại
+        logging.error(f"Error downloading video: {str(e)}")
+        # Clean up temp directory if it exists
         if 'temp_dir' in locals() and os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
-        raise Exception(f"Không thể tải video từ YouTube: {str(e)}")
+        raise Exception(f"Could not download video: {str(e)}")
+
+# Legacy function for backward compatibility
+def download_youtube_video(youtube_url):
+    return download_video_from_url(youtube_url)
 
 # Thêm hàm mới để tạo ảnh từ ảnh đã trích xuất
 def generate_image_from_keyframe(keyframe_path, prompt, style, session_id):
@@ -635,18 +592,21 @@ def upload_file():
     filename = None
     file_path = None
     
-    # Kiểm tra nếu có URL YouTube
-    youtube_url = request.form.get('youtube_url', '')
+    # Kiểm tra nếu có URL video (YouTube hoặc TikTok)
+    video_url = request.form.get('video_url', '')
+    if not video_url:
+        # Compatibility with old code - check for youtube_url
+        video_url = request.form.get('youtube_url', '')
     
-    if youtube_url:
+    if video_url:
         try:
-            # Tải video từ YouTube - không cần validate URL nghiêm ngặt
-            video_info = download_youtube_video(youtube_url)
+            # Tải video từ URL - không cần validate URL nghiêm ngặt
+            video_info = download_video_from_url(video_url)
             file_path = video_info['path']
             filename = video_info['filename']
             
             # Ghi log
-            logging.info(f"Đã tải video YouTube: {video_info['title']}")
+            logging.info(f"Đã tải video {video_info['source']}: {video_info['title']}")
         except Exception as e:
             return jsonify({'error': str(e)}), 500
     else:
@@ -681,11 +641,12 @@ def upload_file():
         # Thêm tên file vào kết quả
         result['filename'] = filename
         
-        # Nếu là video YouTube, thêm thông tin
-        if youtube_url:
-            result['youtube_url'] = youtube_url
+        # Nếu là video từ URL, thêm thông tin
+        if video_url:
+            result['video_url'] = video_url
             if 'video_info' in locals() and 'title' in video_info:
-                result['youtube_title'] = video_info['title']
+                result['video_title'] = video_info['title']
+                result['video_source'] = video_info['source']
         
         return jsonify(result)
     except Exception as e:

@@ -14,8 +14,8 @@
       <header>
         <h1>Trích xuất Khung hình Chính từ Video</h1>
         <p>
-          Tải lên video hoặc nhập URL YouTube và chọn phương pháp trích xuất phù
-          hợp
+          Tải lên video hoặc nhập URL YouTube/TikTok và chọn phương pháp trích
+          xuất phù hợp
         </p>
       </header>
 
@@ -27,6 +27,7 @@
                 Tải lên File
               </div>
               <div class="upload-tab" data-tab="youtube-upload">Từ YouTube</div>
+              <div class="upload-tab" data-tab="tiktok-upload">Từ TikTok</div>
             </div>
 
             <div class="upload-content" id="file-upload">
@@ -96,6 +97,43 @@
                 />
                 <p class="youtube-tip">
                   Hỗ trợ các URL từ youtube.com hoặc youtu.be
+                </p>
+              </div>
+            </div>
+
+            <div
+              class="upload-content"
+              id="tiktok-upload"
+              style="display: none"
+            >
+              <div class="tiktok-form">
+                <div class="tiktok-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="48"
+                    height="48"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M21 8v8a5 5 0 01-5 5H8a5 5 0 01-5-5V8a5 5 0 015-5h8a5 5 0 015 5z"
+                    ></path>
+                    <path d="M10 12a3 3 0 103 3V6c.333 1 1.6 3 4 3"></path>
+                  </svg>
+                </div>
+                <label for="tiktok-url">Nhập URL video TikTok:</label>
+                <input
+                  type="url"
+                  id="tiktok-url"
+                  placeholder="https://www.tiktok.com/@username/video/..."
+                  class="tiktok-input"
+                />
+                <p class="tiktok-tip">
+                  Hỗ trợ các URL từ tiktok.com hoặc vm.tiktok.com
                 </p>
               </div>
             </div>

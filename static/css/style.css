@@ -908,3 +908,51 @@ footer {
   color: #666;
   font-style: italic;
 }
+
+/* TikTok form styling */
+.tiktok-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  text-align: center;
+}
+
+.tiktok-icon {
+  color: var(--primary-color);
+  margin-bottom: 10px;
+}
+
+.tiktok-icon svg {
+  width: 48px;
+  height: 48px;
+}
+
+.tiktok-input {
+  width: 100%;
+  padding: 10px 15px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.tiktok-tip {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 5px;
+}
+
+.tiktok-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: rgba(238, 29, 82, 0.1);
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 10px;
+}
+
+.tiktok-info .tiktok-icon {
+  margin-bottom: 0;
+}
