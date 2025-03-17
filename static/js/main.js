@@ -29,6 +29,12 @@ document.addEventListener("DOMContentLoaded", function () {
   const scriptContent = document.getElementById("script-content");
   const scriptTemperatureSlider = document.getElementById("script-temperature");
   const temperatureValue = document.getElementById("temperature-value");
+  const generatedImagesSection = document.getElementById(
+    "generated-images-section"
+  );
+  const generatedImagesGallery = document.getElementById(
+    "generated-images-gallery"
+  );
 
   let selectedFile = null;
   let currentSessionId = null;
@@ -267,6 +273,7 @@ document.addEventListener("DOMContentLoaded", function () {
     progressContainer.style.display = "none";
     resultsSection.style.display = "block";
     scriptSection.style.display = "none";
+    generatedImagesSection.style.display = "none";
 
     // Display video info
     const minutes = Math.floor(data.duration / 60);
@@ -400,13 +407,26 @@ document.addEventListener("DOMContentLoaded", function () {
                                 }</span>`
                           }
                       </div>
+                      <button class="generate-image-btn" data-frame-path="${
+                        frame.path
+                      }">Tạo ảnh mới</button>
                   </div>
               `;
 
         // Add click event to open full image
-        keyframeElement.addEventListener("click", function () {
-          window.open(imagePath, "_blank");
-        });
+        keyframeElement
+          .querySelector("img")
+          .addEventListener("click", function () {
+            window.open(imagePath, "_blank");
+          });
+
+        // Add click event for generate image button
+        keyframeElement
+          .querySelector(".generate-image-btn")
+          .addEventListener("click", function () {
+            const framePath = this.dataset.framePath;
+            showImageGenerationModal(framePath);
+          });
 
         keyframesGallery.appendChild(keyframeElement);
       });
@@ -414,6 +434,189 @@ document.addEventListener("DOMContentLoaded", function () {
       keyframesGallery.innerHTML =
         '<p class="no-frames">Không có khung hình nào được trích xuất.</p>';
     }
+  }
+
+  // Show image generation modal
+  function showImageGenerationModal(framePath) {
+    // Create modal
+    const modalOverlay = document.createElement("div");
+    modalOverlay.className = "modal-overlay";
+
+    const modal = document.createElement("div");
+    modal.className = "modal";
+
+    modal.innerHTML = `
+      <div class="modal-header">
+        <h3>Tạo ảnh mới từ khung hình</h3>
+        <button class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="image-preview">
+          <img src="/static/${framePath}" alt="Khung hình gốc">
+        </div>
+        <div class="generation-form">
+          <div class="form-group">
+            <label for="image-prompt">Mô tả ảnh mới:</label>
+            <textarea id="image-prompt" rows="3" placeholder="Mô tả ảnh bạn muốn tạo từ khung hình này...">Tạo một phiên bản nghệ thuật của hình ảnh này</textarea>
+          </div>
+          <div class="form-group">
+            <label for="image-style">Phong cách:</label>
+            <select id="image-style">
+              <option value="digital art">Digital Art</option>
+              <option value="oil painting">Oil Painting</option>
+              <option value="watercolor">Watercolor</option>
+              <option value="sketch">Sketch</option>
+              <option value="anime">Anime</option>
+              <option value="photorealistic">Photorealistic</option>
+              <option value="3D render">3D Render</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="generate-btn" data-frame-path="${framePath}">Tạo ảnh</button>
+      </div>
+    `;
+
+    modalOverlay.appendChild(modal);
+    document.body.appendChild(modalOverlay);
+
+    // Close button event
+    modal.querySelector(".close-btn").addEventListener("click", function () {
+      document.body.removeChild(modalOverlay);
+    });
+
+    // Generate button event
+    modal.querySelector("#generate-btn").addEventListener("click", function () {
+      const prompt = document.getElementById("image-prompt").value.trim();
+      const style = document.getElementById("image-style").value;
+      const framePath = this.dataset.framePath;
+
+      if (!prompt) {
+        alert("Vui lòng nhập mô tả cho ảnh mới");
+        return;
+      }
+
+      // Close modal and show loading
+      document.body.removeChild(modalOverlay);
+
+      // Show generated images section with loading
+      generatedImagesSection.style.display = "block";
+      generatedImagesSection.innerHTML = `
+        <h3>Ảnh được tạo ra</h3>
+        <div class="loading-container">
+          <p>Đang tạo ảnh mới, vui lòng đợi...</p>
+          <div class="loading-spinner">
+            <img src="/static/img/loading.gif" alt="Loading" width="50">
+          </div>
+        </div>
+      `;
+
+      // Scroll to generated images section
+      generatedImagesSection.scrollIntoView({ behavior: "smooth" });
+
+      // Send request to server
+      generateImage(framePath, prompt, style);
+    });
+  }
+
+  // Generate image
+  function generateImage(framePath, prompt, style) {
+    fetch("/generate-image", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        keyframe_path: framePath,
+        session_id: currentSessionId,
+        prompt: prompt,
+        style: style,
+      }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          return response.json().then((data) => {
+            throw new Error(data.error || "Lỗi khi tạo ảnh mới");
+          });
+        }
+        return response.json();
+      })
+      .then((data) => {
+        displayGeneratedImages(data);
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        generatedImagesSection.innerHTML = `
+        <h3>Ảnh được tạo ra</h3>
+        <div class="error-message">
+          <p><strong>Lỗi khi tạo ảnh mới:</strong> ${error.message}</p>
+          <p>Vui lòng thử lại sau.</p>
+        </div>
+      `;
+      });
+  }
+
+  // Display generated images
+  function displayGeneratedImages(data) {
+    generatedImagesSection.innerHTML = `
+      <h3>Ảnh được tạo ra</h3>
+      <div class="generation-info">
+        <p><strong>Prompt:</strong> ${data.prompt}</p>
+        <p><strong>Phong cách:</strong> ${data.style}</p>
+      </div>
+      <div class="generated-gallery" id="generated-gallery">
+        <!-- Generated images will be displayed here -->
+      </div>
+    `;
+
+    const generatedGallery = document.getElementById("generated-gallery");
+    if (data.generated_images && data.generated_images.length > 0) {
+      data.generated_images.forEach((image) => {
+        const imageElement = document.createElement("div");
+        imageElement.className = "generated-image";
+
+        // Đảm bảo đường dẫn ảnh đúng
+        const imagePath = `/static/${image.path}`;
+
+        imageElement.innerHTML = `
+          <img src="${imagePath}" alt="Ảnh được tạo" loading="lazy">
+          <div class="image-actions">
+            <button class="download-image-btn" data-path="${imagePath}">Tải xuống</button>
+          </div>
+        `;
+
+        // Add click event to open full image
+        imageElement
+          .querySelector("img")
+          .addEventListener("click", function () {
+            window.open(imagePath, "_blank");
+          });
+
+        // Add click event for download button
+        imageElement
+          .querySelector(".download-image-btn")
+          .addEventListener("click", function () {
+            const path = this.dataset.path;
+            downloadImage(path);
+          });
+
+        generatedGallery.appendChild(imageElement);
+      });
+    } else {
+      generatedGallery.innerHTML =
+        '<p class="no-images">Không có ảnh nào được tạo ra.</p>';
+    }
+  }
+
+  // Download a single image
+  function downloadImage(imagePath) {
+    const link = document.createElement("a");
+    link.href = imagePath;
+    link.download = "generated-image-" + Date.now() + ".jpg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   // Format time (seconds to MM:SS)
@@ -535,6 +738,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Reset UI
     resultsSection.style.display = "none";
     scriptSection.style.display = "none";
+    generatedImagesSection.style.display = "none";
     uploadContainer.style.display = "flex";
 
     // Reset file upload area

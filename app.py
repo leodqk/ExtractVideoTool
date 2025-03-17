@@ -13,6 +13,9 @@ import logging
 from pytube import YouTube
 import re
 import yt_dlp  # Thay thế youtube_dl bằng yt-dlp
+import requests
+from PIL import Image
+from io import BytesIO
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -20,21 +23,43 @@ logging.basicConfig(level=logging.INFO)
 # Cấu hình
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
 KEYFRAMES_FOLDER = os.path.join('static', 'uploads', 'keyframes')
+GENERATED_IMAGES_FOLDER = os.path.join('static', 'uploads', 'generated')
 ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv', 'webm'}
+API_KEY_FILE = 'api_key.txt'  # File chứa API key
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Giới hạn 500MB
 
+# Đọc API key từ file
+def get_api_key():
+    try:
+        if os.path.exists(API_KEY_FILE):
+            with open(API_KEY_FILE, 'r') as f:
+                api_key = f.read().strip()
+                if api_key:
+                    return api_key
+    except Exception as e:
+        logging.error(f"Lỗi khi đọc API key từ file: {str(e)}")
+    
+    # Sử dụng key mặc định nếu không đọc được từ file
+    return "AIzaSyAiBnNrdbs7cj6P5vbMiecEz5csI9S99xQ"
+
 # Cấu hình Gemini API
-GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"  # Thay thế bằng API key thật
+GEMINI_API_KEY = get_api_key()
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Tạo thư mục nếu chưa tồn tại
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(KEYFRAMES_FOLDER, exist_ok=True)
+os.makedirs(GENERATED_IMAGES_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_video_name_without_extension(video_path):
+    """Lấy tên video không có đuôi mở rộng"""
+    base_name = os.path.basename(video_path)
+    return os.path.splitext(base_name)[0]
 
 def extract_keyframes_method1(video_path, threshold=30, max_frames=20):
     """
@@ -52,9 +77,11 @@ def extract_keyframes_method1(video_path, threshold=30, max_frames=20):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    # Tạo ID duy nhất cho bộ khung hình
-    session_id = str(uuid.uuid4())
-    session_folder = os.path.join(KEYFRAMES_FOLDER, session_id)
+    # Lấy tên video để đặt tên folder
+    video_name = get_video_name_without_extension(video_path)
+    
+    # Tạo thư mục dựa trên tên video
+    session_folder = os.path.join(KEYFRAMES_FOLDER, video_name)
     os.makedirs(session_folder, exist_ok=True)
     
     # Các biến theo dõi
@@ -87,7 +114,7 @@ def extract_keyframes_method1(video_path, threshold=30, max_frames=20):
             cv2.imwrite(frame_path, frame)
             
             # Đường dẫn tương đối cho frontend
-            relative_path = os.path.join('uploads', 'keyframes', session_id, frame_filename)
+            relative_path = os.path.join('uploads', 'keyframes', video_name, frame_filename)
             keyframes.append({
                 'path': relative_path,
                 'frame_number': frame_count,
@@ -110,7 +137,7 @@ def extract_keyframes_method1(video_path, threshold=30, max_frames=20):
             cv2.imwrite(frame_path, frame)
             
             # Đường dẫn tương đối cho frontend
-            relative_path = os.path.join('uploads', 'keyframes', session_id, frame_filename)
+            relative_path = os.path.join('uploads', 'keyframes', video_name, frame_filename)
             keyframes.append({
                 'path': relative_path,
                 'frame_number': frame_count,
@@ -129,7 +156,7 @@ def extract_keyframes_method1(video_path, threshold=30, max_frames=20):
     
     # Trả về thông tin các khung hình và ID phiên
     return {
-        'session_id': session_id,
+        'session_id': video_name,  # Sử dụng tên video làm session_id
         'keyframes': keyframes,
         'total_frames': total_frames,
         'fps': fps,
@@ -155,9 +182,11 @@ def extract_keyframes_method2(video_path, threshold=30, min_scene_length=15, max
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    # Tạo ID duy nhất cho bộ khung hình
-    session_id = str(uuid.uuid4())
-    session_folder = os.path.join(KEYFRAMES_FOLDER, session_id)
+    # Lấy tên video để đặt tên folder
+    video_name = get_video_name_without_extension(video_path)
+    
+    # Tạo thư mục dựa trên tên video
+    session_folder = os.path.join(KEYFRAMES_FOLDER, video_name)
     os.makedirs(session_folder, exist_ok=True)
     
     # Các biến theo dõi
@@ -194,7 +223,7 @@ def extract_keyframes_method2(video_path, threshold=30, min_scene_length=15, max
             cv2.imwrite(frame_path, frame)
             
             # Đường dẫn tương đối cho frontend
-            relative_path = os.path.join('uploads', 'keyframes', session_id, frame_filename)
+            relative_path = os.path.join('uploads', 'keyframes', video_name, frame_filename)
             keyframes.append({
                 'path': relative_path,
                 'frame_number': frame_count,
@@ -243,7 +272,7 @@ def extract_keyframes_method2(video_path, threshold=30, min_scene_length=15, max
                 cv2.imwrite(frame_path, mid_frame)
                 
                 # Đường dẫn tương đối cho frontend
-                relative_path = os.path.join('uploads', 'keyframes', session_id, frame_filename)
+                relative_path = os.path.join('uploads', 'keyframes', video_name, frame_filename)
                 keyframes.append({
                     'path': relative_path,
                     'frame_number': mid_frame_idx,
@@ -284,7 +313,7 @@ def extract_keyframes_method2(video_path, threshold=30, min_scene_length=15, max
             cv2.imwrite(frame_path, mid_frame)
             
             # Đường dẫn tương đối cho frontend
-            relative_path = os.path.join('uploads', 'keyframes', session_id, frame_filename)
+            relative_path = os.path.join('uploads', 'keyframes', video_name, frame_filename)
             keyframes.append({
                 'path': relative_path,
                 'frame_number': mid_frame_idx,
@@ -297,7 +326,7 @@ def extract_keyframes_method2(video_path, threshold=30, min_scene_length=15, max
     
     # Trả về thông tin các khung hình và ID phiên
     return {
-        'session_id': session_id,
+        'session_id': video_name,  # Sử dụng tên video làm session_id
         'keyframes': keyframes,
         'scenes': scenes,
         'total_frames': total_frames,
@@ -331,8 +360,6 @@ def extract_video_id(url):
         return match.group(6)
     
     return None
-
-
 
 def download_youtube_video(youtube_url):
     """
@@ -485,9 +512,114 @@ def download_youtube_video(youtube_url):
             shutil.rmtree(temp_dir)
         raise Exception(f"Không thể tải video từ YouTube: {str(e)}")
 
+# Thêm hàm mới để tạo ảnh từ ảnh đã trích xuất
+def generate_image_from_keyframe(keyframe_path, prompt, style, session_id):
+    """
+    Tạo ảnh mới từ khung hình đã trích xuất sử dụng Gemini 2.0 Flash Experimental
+    """
+    try:
+        # Tạo thư mục cho ảnh được tạo ra nếu chưa tồn tại
+        gen_session_folder = os.path.join(GENERATED_IMAGES_FOLDER, session_id)
+        os.makedirs(gen_session_folder, exist_ok=True)
+        
+        # Đọc ảnh gốc
+        with open(os.path.join('static', keyframe_path), "rb") as img_file:
+            image_data = img_file.read()
+        
+        # Chuẩn bị tham số cho Gemini
+        generation_config = {
+            "temperature": 0.9,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 2048,
+        }
+        
+        safety_settings = [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            }
+        ]
+        
+        # Tạo mô hình Gemini
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            generation_config=generation_config,
+            safety_settings=safety_settings
+        )
+        
+        # Thêm style vào prompt
+        full_prompt = f"{prompt}. Style: {style}."
+        
+        # Tạo nội dung cho request
+        contents = [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": full_prompt},
+                    {
+                        "inline_data": {
+                            "mime_type": "image/jpeg",
+                            "data": base64.b64encode(image_data).decode('utf-8')
+                        }
+                    }
+                ]
+            }
+        ]
+        
+        # Gọi API Gemini để tạo ảnh
+        response = model.generate_content(contents, stream=False)
+        
+        # Xử lý phản hồi để lấy ảnh
+        generated_images = []
+        
+        for part in response.parts:
+            if hasattr(part, 'inline_data') and part.inline_data:
+                # Lưu ảnh được tạo ra
+                image_index = len(generated_images)
+                image_filename = f"generated_{image_index}.jpg"
+                image_path = os.path.join(gen_session_folder, image_filename)
+                
+                # Giải mã dữ liệu ảnh
+                image_bytes = base64.b64decode(part.inline_data.data)
+                
+                # Lưu ảnh
+                with open(image_path, "wb") as f:
+                    f.write(image_bytes)
+                
+                # Đường dẫn tương đối cho frontend
+                relative_path = os.path.join('uploads', 'generated', session_id, image_filename)
+                generated_images.append({
+                    'path': relative_path,
+                    'prompt': full_prompt
+                })
+        
+        return {
+            'generated_images': generated_images,
+            'prompt': full_prompt,
+            'style': style
+        }
+        
+    except Exception as e:
+        logging.error(f"Lỗi khi tạo ảnh mới: {str(e)}")
+        raise Exception(f"Không thể tạo ảnh mới: {str(e)}")
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -498,6 +630,10 @@ def upload_file():
     threshold = request.form.get('threshold', 30, type=int)
     max_frames = request.form.get('max_frames', 20, type=int)
     min_scene_length = request.form.get('min_scene_length', 15, type=int)
+    
+    # Khởi tạo biến filename và file_path
+    filename = None
+    file_path = None
     
     # Kiểm tra nếu có URL YouTube
     youtube_url = request.form.get('youtube_url', '')
@@ -530,7 +666,11 @@ def upload_file():
         filename = secure_filename(file.filename)
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
-    
+
+    # Kiểm tra xem file_path và filename đã được thiết lập chưa
+    if not file_path or not filename:
+        return jsonify({'error': 'Không thể xử lý file hoặc URL'}), 400
+
     # Trích xuất khung hình theo phương pháp được chọn
     try:
         if method == 'method1':
@@ -544,13 +684,14 @@ def upload_file():
         # Nếu là video YouTube, thêm thông tin
         if youtube_url:
             result['youtube_url'] = youtube_url
-            if 'title' in locals().get('video_info', {}):
+            if 'video_info' in locals() and 'title' in video_info:
                 result['youtube_title'] = video_info['title']
         
         return jsonify(result)
     except Exception as e:
         logging.error(f"Lỗi khi xử lý video: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/generate-script', methods=['POST'])
 def generate_script():
@@ -562,7 +703,7 @@ def generate_script():
             return jsonify({'error': 'Không có session ID'}), 400
             
         # Lấy temperature từ request, mặc định là 0.7
-        temperature = data.get('temperature', 0.7)
+        temperature = data.get('temperature', 0.9)
         
         # Đảm bảo temperature nằm trong khoảng hợp lệ (0.0 - 1.0)
         temperature = max(0.0, min(1.0, float(temperature)))
@@ -580,7 +721,7 @@ def generate_script():
             return jsonify({'error': 'Không có khung hình nào được tìm thấy'}), 404
             
         # Tạo prompt cho Gemini
-        prompt = "Từ hình ảnh frame_0 đến frame cuối cùng, hãy phân tích và đưa tôi lại kịch bản câu truyện trên. Hãy mô tả chi tiết các yếu tố thị giác, bối cảnh, nhân vật và diễn biến câu chuyện."
+        prompt = "Từ hình ảnh frame_0 đến frame cuối cùng, hãy phân tích và đưa tôi lại kịch bản câu truyện trên."
         
         # Cấu hình model Gemini - Sử dụng mô hình gemini-1.5-flash với temperature tùy chỉnh
         generation_config = {
@@ -657,6 +798,27 @@ def generate_script():
         
     except Exception as e:
         logging.error(f"Lỗi khi trích xuất kịch bản: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/generate-image', methods=['POST'])
+def generate_image():
+    """API endpoint để tạo ảnh mới từ khung hình đã trích xuất"""
+    try:
+        data = request.json
+        keyframe_path = data.get('keyframe_path')
+        session_id = data.get('session_id')
+        prompt = data.get('prompt', 'Tạo một phiên bản mới của hình ảnh này')
+        style = data.get('style', 'digital art')
+        
+        if not keyframe_path or not session_id:
+            return jsonify({'error': 'Thiếu thông tin cần thiết'}), 400
+        
+        # Gọi hàm tạo ảnh
+        result = generate_image_from_keyframe(keyframe_path, prompt, style, session_id)
+        
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Lỗi khi tạo ảnh: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/download/<session_id>', methods=['GET'])
