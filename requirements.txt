@@ -4,3 +4,5 @@ numpy
 pytube
 google-generativeai
 youtube-dl
+yt_dlp
+pillow
