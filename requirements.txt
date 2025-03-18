@@ -6,3 +6,6 @@ google-generativeai
 youtube-dl
 yt_dlp
 pillow
+SpeechRecognition
+pydub
+whisper

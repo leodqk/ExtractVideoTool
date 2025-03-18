@@ -257,6 +257,24 @@
                   value="15"
                 />
               </div>
+
+              <!-- Trích xuất âm thanh -->
+              <div class="setting-item audio-setting">
+                <label for="extract-audio">Trích xuất âm thanh:</label>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="extract-audio" checked />
+                  <span class="toggle-slider"></span>
+                </div>
+              </div>
+
+              <!-- Phát hiện trùng lặp -->
+              <div class="setting-item duplicate-setting">
+                <label for="detect-duplicates">Phát hiện ảnh trùng lặp:</label>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="detect-duplicates" checked />
+                  <span class="toggle-slider"></span>
+                </div>
+              </div>
             </div>
 
             <button id="extract-btn">Trích xuất Khung hình</button>
@@ -300,6 +318,104 @@
 
           <div class="scenes-info" id="scenes-info" style="display: none">
             <!-- Thông tin về các cảnh sẽ được hiển thị ở đây (chỉ cho phương pháp 2) -->
+          </div>
+
+          <!-- Phần hiển thị phiên âm -->
+          <div
+            class="transcript-section"
+            id="transcript-section"
+            style="display: none"
+          >
+            <h3>Phiên âm</h3>
+            <div class="transcript-content" id="transcript-content">
+              <!-- Phiên âm sẽ được hiển thị ở đây -->
+            </div>
+          </div>
+
+          <!-- Phần cài đặt ngưỡng trùng lặp với nút áp dụng -->
+          <!-- Cài đặt ngưỡng độ khác biệt -->
+          <div class="setting-item difference-threshold-setting">
+            <label for="difference-threshold">Ngưỡng độ khác biệt:</label>
+            <div class="threshold-control">
+              <input
+                type="range"
+                id="difference-threshold"
+                min="0.1"
+                max="0.5"
+                step="0.05"
+                value="0.3"
+                class="slider"
+              />
+              <span id="difference-threshold-value">0.3</span>
+            </div>
+          </div>
+          <div class="threshold-info">
+            Ngưỡng thấp (0.1-0.2): Giữ nhiều khung hình | Ngưỡng cao (0.3-0.5):
+            Chỉ giữ khung hình khác biệt rõ rệt
+          </div>
+          <div class="apply-threshold-container">
+            <button id="apply-threshold-btn">Áp dụng ngưỡng và Lọc</button>
+          </div>
+
+          <!-- Thông báo ảnh tương tự -->
+          <div
+            class="similarity-notification"
+            id="similarity-notification"
+            style="display: none"
+          >
+            <div class="notification-content">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <p>
+                Phát hiện <span id="similar-count">0</span> ảnh có độ khác biệt
+                thấp
+              </p>
+              <button id="remove-similar-btn">
+                Xóa ảnh có độ khác biệt thấp
+              </button>
+            </div>
+          </div>
+
+          <!-- Thông báo ảnh trùng lặp -->
+          <div
+            class="duplicate-notification"
+            id="duplicate-notification"
+            style="display: none"
+          >
+            <div class="notification-content">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <p>Phát hiện <span id="duplicate-count">0</span> ảnh trùng lặp</p>
+              <button id="remove-duplicates-btn">
+                Xóa tất cả ảnh trùng lặp
+              </button>
+            </div>
           </div>
 
           <h3>Các khung hình đã trích xuất</h3>
