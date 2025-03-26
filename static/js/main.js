@@ -146,6 +146,9 @@ document.addEventListener("DOMContentLoaded", function () {
           <button id="download-all-queue-btn" class="download-all-btn">
             <i class="fas fa-download"></i> Tải xuống tất cả
           </button>
+          <button id="generate-all-prompts-btn" class="generate-all-prompts-btn">
+            <i class="fas fa-magic"></i> Lấy tất cả prompt video
+          </button>
           <button id="clear-queue-btn" class="danger-btn">
             <i class="fas fa-trash-alt"></i> Xóa tất cả
           </button>
@@ -166,6 +169,9 @@ document.addEventListener("DOMContentLoaded", function () {
               </button>
               <button class="regenerate-queue-image-btn" data-index="${index}">
                 <i class="fas fa-sync-alt"></i> Tạo lại
+              </button>
+              <button class="generate-prompt-btn" data-index="${index}">
+                <i class="fas fa-magic"></i> Tạo prompt
               </button>
               <button class="remove-queue-image-btn" data-index="${index}">
                 <i class="fas fa-trash-alt"></i>
@@ -255,6 +261,273 @@ document.addEventListener("DOMContentLoaded", function () {
           showImageQueueModal(isAutoProcess); // Hiển thị lại modal với cùng trạng thái
         });
       });
+
+      // Sự kiện tạo prompt
+      const generatePromptBtns = modal.querySelectorAll(".generate-prompt-btn");
+      generatePromptBtns.forEach((btn) => {
+        btn.addEventListener("click", async function () {
+          const index = parseInt(this.dataset.index);
+          const imageData = imageQueue[index];
+
+          // Create and show loading modal
+          const promptModalOverlay = document.createElement("div");
+          promptModalOverlay.className = "modal-overlay";
+
+          const promptModal = document.createElement("div");
+          promptModal.className = "modal";
+          promptModal.innerHTML = `
+            <div class="modal-header">
+              <h3><i class="fas fa-magic"></i> Tạo prompt với Gemini AI</h3>
+              <button class="close-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+              <div class="image-preview">
+                <img src="${imageData.url}" alt="Selected image">
+              </div>
+              <div class="prompt-loading">
+                <p><i class="fas fa-spinner fa-spin"></i> Đang tạo prompt từ hình ảnh với Gemini AI...</p>
+                <div class="loading-spinner">
+                  <img src="/static/img/loading.gif" alt="Loading" width="50">
+                </div>
+              </div>
+            </div>
+          `;
+
+          promptModalOverlay.appendChild(promptModal);
+          document.body.appendChild(promptModalOverlay);
+
+          // Close button event
+          promptModal
+            .querySelector(".close-btn")
+            .addEventListener("click", function () {
+              document.body.removeChild(promptModalOverlay);
+            });
+
+          try {
+            // Tải ảnh về thư mục temp
+            const tempImagePath = await downloadImageToTemp(imageData.url);
+
+            // Call API to generate prompt with Gemini
+            const response = await fetch("/generate-video-prompt", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                keyframe_path: tempImagePath,
+              }),
+            });
+
+            if (!response.ok) {
+              const data = await response.json();
+              throw new Error(data.error || "Lỗi khi tạo prompt với Gemini");
+            }
+
+            const data = await response.json();
+            const promptLoadingDiv =
+              promptModal.querySelector(".prompt-loading");
+
+            if (data.success) {
+              promptLoadingDiv.innerHTML = `
+                <div class="generated-prompt">
+                  <h4>Prompt video được tạo bởi Gemini AI:</h4>
+                  <div class="prompt-content">${data.prompt}</div>
+                  <div class="prompt-actions">
+                    <button class="copy-prompt-btn">
+                      <i class="fas fa-copy"></i> Sao chép
+                    </button>
+                  </div>
+                </div>
+              `;
+
+              // Add copy button functionality
+              promptModal
+                .querySelector(".copy-prompt-btn")
+                .addEventListener("click", function () {
+                  const promptText = data.prompt;
+                  navigator.clipboard
+                    .writeText(promptText)
+                    .then(() => {
+                      showToast("Đã sao chép prompt vào clipboard!");
+                    })
+                    .catch((err) => {
+                      console.error("Could not copy text: ", err);
+                      showToast("Không thể sao chép prompt");
+                    });
+                });
+            } else {
+              promptLoadingDiv.innerHTML = `<p class="error-message"><i class="fas fa-exclamation-circle"></i> ${
+                data.error || "Lỗi khi tạo prompt"
+              }</p>`;
+            }
+          } catch (error) {
+            const promptLoadingDiv =
+              promptModal.querySelector(".prompt-loading");
+            promptLoadingDiv.innerHTML = `<p class="error-message"><i class="fas fa-exclamation-circle"></i> ${error.message}</p>`;
+          }
+        });
+      });
+
+      // Thêm sự kiện cho nút lấy tất cả prompt
+      modal
+        .querySelector("#generate-all-prompts-btn")
+        .addEventListener("click", async function () {
+          const btn = this;
+          btn.disabled = true;
+          btn.innerHTML =
+            '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+
+          // Tạo modal hiển thị kết quả
+          const resultModalOverlay = document.createElement("div");
+          resultModalOverlay.className = "modal-overlay";
+
+          const resultModal = document.createElement("div");
+          resultModal.className = "modal";
+          resultModal.innerHTML = `
+          <div class="modal-header">
+            <h3><i class="fas fa-magic"></i> Kết quả tạo prompt video</h3>
+            <button class="close-btn"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="modal-body">
+            <div class="prompts-container">
+              <div class="prompts-list"></div>
+            </div>
+            <div class="prompts-actions" style="display: none;">
+              <button class="download-prompts-btn">
+                <i class="fas fa-download"></i> 
+              </button>
+            </div>
+          </div>
+        `;
+
+          resultModalOverlay.appendChild(resultModal);
+          document.body.appendChild(resultModalOverlay);
+
+          // Close button event
+          resultModal
+            .querySelector(".close-btn")
+            .addEventListener("click", function () {
+              document.body.removeChild(resultModalOverlay);
+              btn.disabled = false;
+              btn.innerHTML =
+                '<i class="fas fa-magic"></i> Lấy tất cả prompt video';
+            });
+
+          const promptsList = resultModal.querySelector(".prompts-list");
+          const prompts = [];
+
+          // Xử lý từng ảnh
+          for (let i = 0; i < imageQueue.length; i++) {
+            const imageData = imageQueue[i];
+            promptsList.innerHTML += `
+            <div class="prompt-item" data-index="${i}">
+              <div class="prompt-image">
+                <img src="${imageData.url}" alt="Ảnh ${i + 1}">
+              </div>
+              <div class="prompt-content">
+                <p><i class="fas fa-spinner fa-spin"></i> Đang tạo prompt...</p>
+              </div>
+            </div>
+          `;
+
+            try {
+              // Tải ảnh về temp
+              const tempImagePath = await downloadImageToTemp(imageData.url);
+
+              // Gọi API tạo prompt
+              const response = await fetch("/generate-video-prompt", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  keyframe_path: tempImagePath,
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error("Lỗi khi tạo prompt");
+              }
+
+              const data = await response.json();
+              if (data.success) {
+                prompts.push({
+                  image: imageData.url,
+                  prompt: data.prompt,
+                });
+
+                // Cập nhật UI
+                const promptItem = promptsList.querySelector(
+                  `[data-index="${i}"]`
+                );
+                promptItem.querySelector(".prompt-content").innerHTML = `
+                <div class="prompt-text">${data.prompt}</div>
+                <button class="copy-prompt-btn">
+                  <i class="fas fa-copy"></i> Sao chép
+                </button>
+              `;
+
+                // Thêm sự kiện copy
+                promptItem
+                  .querySelector(".copy-prompt-btn")
+                  .addEventListener("click", function () {
+                    navigator.clipboard
+                      .writeText(data.prompt)
+                      .then(() => showToast("Đã sao chép prompt!"))
+                      .catch(() => showToast("Không thể sao chép prompt"));
+                  });
+              } else {
+                throw new Error(data.error || "Lỗi khi tạo prompt");
+              }
+            } catch (error) {
+              const promptItem = promptsList.querySelector(
+                `[data-index="${i}"]`
+              );
+              promptItem.querySelector(".prompt-content").innerHTML = `
+              <p class="error-message"><i class="fas fa-exclamation-circle"></i> ${error.message}</p>
+            `;
+            }
+          }
+
+          // Hiển thị nút tải xuống sau khi đã xử lý xong tất cả ảnh
+          if (prompts.length > 0) {
+            resultModal.querySelector(".prompts-actions").style.display =
+              "flex";
+          }
+
+          // Thêm sự kiện tải xuống tất cả prompt
+          resultModal
+            .querySelector(".download-prompts-btn")
+            .addEventListener("click", function () {
+              if (prompts.length === 0) {
+                showToast("Không có prompt nào để tải xuống");
+                return;
+              }
+
+              // Tạo nội dung file
+              let content = "Danh sách prompt video:\n\n";
+              prompts.forEach((item, index) => {
+                content += `Prompt ${index + 1}:\n${item.prompt}\n\n`;
+              });
+
+              // Tạo và tải file
+              const blob = new Blob([content], { type: "text/plain" });
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `video-prompts-${Date.now()}.txt`;
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+              document.body.removeChild(a);
+
+              showToast("Đã tải xuống tất cả prompt!");
+            });
+
+          btn.disabled = false;
+          btn.innerHTML =
+            '<i class="fas fa-magic"></i> Lấy tất cả prompt video';
+        });
     }
   }
 
@@ -2867,6 +3140,12 @@ document.addEventListener("DOMContentLoaded", function () {
     // Create a modal to show progress and the image when ready
     const modal = document.createElement("div");
     modal.className = "modal-overlay";
+
+    // Add a flag to track if we're polling
+    let isPolling = false;
+    // Define polling interval variable in the outer scope
+    let pollingInterval = null;
+
     modal.innerHTML = `
       <div class="modal leonardo-modal">
         <div class="modal-header">
@@ -2906,17 +3185,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.body.appendChild(modal);
 
-    // Define polling interval variable in the outer scope
-    let pollingInterval;
-
-    // Add close button functionality
-    const closeBtn = modal.querySelector(".close-btn");
-    closeBtn.addEventListener("click", function () {
-      document.body.removeChild(modal);
-      // If we're still polling, stop it when the modal is closed
+    // Function to cleanup polling
+    const stopPolling = () => {
       if (pollingInterval) {
         clearInterval(pollingInterval);
+        pollingInterval = null;
       }
+      isPolling = false;
+    };
+
+    // Add close button functionality with cleanup
+    const closeBtn = modal.querySelector(".close-btn");
+    closeBtn.addEventListener("click", function () {
+      stopPolling();
+      document.body.removeChild(modal);
     });
 
     // First call API to generate prompt with Gemini
@@ -2975,15 +3257,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
           // Function to check generation status
           const checkGenerationStatus = () => {
+            // Don't poll if we're not polling anymore
+            if (!isPolling) return;
+
             fetch(`/get-leonardo-image/${generationId}`)
               .then((response) => {
-                // Kiểm tra nếu response không OK (như 404, 500, v.v.)
                 if (!response.ok) {
                   throw new Error(
                     `Lỗi HTTP: ${response.status} - ${response.statusText}`
                   );
                 }
-                // Kiểm tra content-type để đảm bảo là JSON
                 const contentType = response.headers.get("content-type");
                 if (!contentType || !contentType.includes("application/json")) {
                   throw new Error(
@@ -2993,17 +3276,18 @@ document.addEventListener("DOMContentLoaded", function () {
                 return response.json();
               })
               .then((result) => {
-                pollingCount++;
+                // Don't process results if we're not polling anymore
+                if (!isPolling) return;
 
-                // Update the loading message with status
+                pollingCount++;
                 const loadingElement = modal.querySelector(
                   ".leonardo-loading p"
                 );
 
                 if (result.success) {
                   if (result.complete) {
-                    // Generation is complete, display the image
-                    clearInterval(pollingInterval);
+                    // Stop polling when complete
+                    stopPolling();
 
                     // Hide loading message and show result
                     modal.querySelector(".leonardo-loading").style.display =
@@ -3035,7 +3319,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     );
                     downloadBtn.style.display = "flex";
                     downloadBtn.addEventListener("click", function () {
-                      // Use our new download function instead of opening in a new tab
                       downloadImage(image.url);
                     });
 
@@ -3045,7 +3328,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     );
                     addQueueBtn.style.display = "flex";
                     addQueueBtn.addEventListener("click", function () {
-                      // Add the image to queue
                       addToImageQueue({
                         url: image.url,
                         prompt: result.prompt,
@@ -3059,7 +3341,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     );
                     saveFolderBtn.style.display = "flex";
                     saveFolderBtn.addEventListener("click", function () {
-                      // Create a zip file with just this one image
                       downloadImagesAsZip(
                         [image.url],
                         `leonardo-image-${Date.now()}.zip`
@@ -3079,14 +3360,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     // If we've been polling for too long (more than 2 minutes), stop polling
                     if (pollingCount > 24) {
-                      // 24 polls at 5s interval = 2 minutes
-                      clearInterval(pollingInterval);
+                      stopPolling();
                       loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Quá thời gian chờ. Vui lòng kiểm tra trên trang Leonardo.ai`;
                     }
                   }
                 } else {
                   // Error occurred while checking status
-                  clearInterval(pollingInterval);
+                  stopPolling();
                   loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Lỗi: ${
                     result.error || "Không thể kiểm tra trạng thái"
                   }`;
@@ -3098,13 +3378,17 @@ document.addEventListener("DOMContentLoaded", function () {
                   ".leonardo-loading p"
                 );
                 loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Lỗi: ${error.message}`;
+                stopPolling();
               });
           };
 
-          // Start polling - check every 5 seconds
-          pollingInterval = setInterval(checkGenerationStatus, 5000);
-          // Also check immediately
-          checkGenerationStatus();
+          // Start polling only if we're not already polling
+          if (!isPolling) {
+            isPolling = true;
+            pollingInterval = setInterval(checkGenerationStatus, 5000);
+            // Also check immediately
+            checkGenerationStatus();
+          }
         } else {
           // Error occurred during initial request
           throw new Error(data.error || "Failed to start image generation");
@@ -3114,6 +3398,7 @@ document.addEventListener("DOMContentLoaded", function () {
         console.error("Error:", error);
         const loadingElement = modal.querySelector(".leonardo-loading p");
         loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <strong>Lỗi:</strong> ${error.message}`;
+        stopPolling();
       });
   }
 
@@ -3126,6 +3411,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const originalBtnText = createBtn.innerHTML;
     createBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang xử lý...`;
     createBtn.disabled = true;
+
+    // Variables for polling
+    let pollingCount = 0;
+    let isPolling = false;
+    let pollingInterval = null;
 
     // Call the Leonardo.ai API endpoint
     fetch("/generate-leonardo-image", {
@@ -3152,7 +3442,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
           // Start polling for generation status
           const generationId = data.generation_id;
-          let pollingCount = 0;
 
           // Create a modal to show progress and the image when ready
           const modal = document.createElement("div");
@@ -3197,27 +3486,37 @@ document.addEventListener("DOMContentLoaded", function () {
 
           document.body.appendChild(modal);
 
-          // Add close button functionality
-          const closeBtn = modal.querySelector(".close-btn");
-          closeBtn.addEventListener("click", function () {
-            document.body.removeChild(modal);
-            // If we're still polling, stop it when the modal is closed
+          // Function to cleanup polling
+          const stopPolling = () => {
             if (pollingInterval) {
               clearInterval(pollingInterval);
+              pollingInterval = null;
             }
+            isPolling = false;
+            // Restore the create button state
+            createBtn.innerHTML = originalBtnText;
+            createBtn.disabled = false;
+          };
+
+          // Add close button functionality with cleanup
+          const closeBtn = modal.querySelector(".close-btn");
+          closeBtn.addEventListener("click", function () {
+            stopPolling();
+            document.body.removeChild(modal);
           });
 
           // Function to check generation status
           const checkGenerationStatus = () => {
+            // Don't poll if we're not polling anymore
+            if (!isPolling) return;
+
             fetch(`/get-leonardo-image/${generationId}`)
               .then((response) => {
-                // Kiểm tra nếu response không OK (như 404, 500, v.v.)
                 if (!response.ok) {
                   throw new Error(
                     `Lỗi HTTP: ${response.status} - ${response.statusText}`
                   );
                 }
-                // Kiểm tra content-type để đảm bảo là JSON
                 const contentType = response.headers.get("content-type");
                 if (!contentType || !contentType.includes("application/json")) {
                   throw new Error(
@@ -3227,17 +3526,18 @@ document.addEventListener("DOMContentLoaded", function () {
                 return response.json();
               })
               .then((result) => {
-                pollingCount++;
+                // Don't process results if we're not polling anymore
+                if (!isPolling) return;
 
-                // Update the loading message with status
+                pollingCount++;
                 const loadingElement = modal.querySelector(
                   ".leonardo-loading p"
                 );
 
                 if (result.success) {
                   if (result.complete) {
-                    // Generation is complete, display the image
-                    clearInterval(pollingInterval);
+                    // Stop polling when complete
+                    stopPolling();
 
                     // Hide loading message and show result
                     modal.querySelector(".leonardo-loading").style.display =
@@ -3248,9 +3548,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     // Display the image
                     const imageContainer = modal.querySelector(
                       ".leonardo-image-container"
-                    );
-                    const imageInfo = modal.querySelector(
-                      ".leonardo-image-info"
                     );
                     const promptContainer =
                       modal.querySelector(".leonardo-prompt");
@@ -3272,7 +3569,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     );
                     downloadBtn.style.display = "flex";
                     downloadBtn.addEventListener("click", function () {
-                      // Use our new download function instead of opening in a new tab
                       downloadImage(image.url);
                     });
 
@@ -3282,7 +3578,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     );
                     addQueueBtn.style.display = "flex";
                     addQueueBtn.addEventListener("click", function () {
-                      // Add the image to queue
                       addToImageQueue({
                         url: image.url,
                         prompt: result.prompt,
@@ -3296,7 +3591,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     );
                     saveFolderBtn.style.display = "flex";
                     saveFolderBtn.addEventListener("click", function () {
-                      // Create a zip file with just this one image
                       downloadImagesAsZip(
                         [image.url],
                         `leonardo-image-${Date.now()}.zip`
@@ -3308,10 +3602,6 @@ document.addEventListener("DOMContentLoaded", function () {
                       ".modal-header h3"
                     ).innerHTML = `<i class="fas fa-image"></i> Ảnh đã được tạo thành công`;
 
-                    // Restore the create button state
-                    createBtn.innerHTML = originalBtnText;
-                    createBtn.disabled = false;
-
                     // Show success message
                     showToast("Ảnh đã được tạo thành công!");
                   } else {
@@ -3320,39 +3610,35 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     // If we've been polling for too long (more than 2 minutes), stop polling
                     if (pollingCount > 24) {
-                      // 24 polls at 5s interval = 2 minutes
-                      clearInterval(pollingInterval);
+                      stopPolling();
                       loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Quá thời gian chờ. Vui lòng kiểm tra trên trang Leonardo.ai`;
-
-                      // Restore the create button state
-                      createBtn.innerHTML = originalBtnText;
-                      createBtn.disabled = false;
                     }
                   }
                 } else {
                   // Error occurred while checking status
-                  clearInterval(pollingInterval);
+                  stopPolling();
                   loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Lỗi: ${
                     result.error || "Không thể kiểm tra trạng thái"
                   }`;
-
-                  // Restore the create button state
-                  createBtn.innerHTML = originalBtnText;
-                  createBtn.disabled = false;
                 }
               })
               .catch((error) => {
                 console.error("Error checking generation status:", error);
-                // Restore the create button state if error
-                createBtn.innerHTML = originalBtnText;
-                createBtn.disabled = false;
+                const loadingElement = modal.querySelector(
+                  ".leonardo-loading p"
+                );
+                loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Lỗi: ${error.message}`;
+                stopPolling();
               });
           };
 
-          // Start polling - check every 5 seconds
-          const pollingInterval = setInterval(checkGenerationStatus, 5000);
-          // Also check immediately
-          checkGenerationStatus();
+          // Start polling only if we're not already polling
+          if (!isPolling) {
+            isPolling = true;
+            pollingInterval = setInterval(checkGenerationStatus, 5000);
+            // Also check immediately
+            checkGenerationStatus();
+          }
         } else {
           // Error occurred during initial request
           showToast(`Lỗi: ${data.error}`);
@@ -3363,9 +3649,10 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .catch((error) => {
         console.error("Error:", error);
+        showToast(`Lỗi: ${error.message}`);
+        // Restore the create button state
         createBtn.innerHTML = originalBtnText;
         createBtn.disabled = false;
-        showToast(`Lỗi: ${error.message}`);
       });
   }
 
@@ -3622,353 +3909,92 @@ document.addEventListener("DOMContentLoaded", function () {
               index + 1
             }: ${error.message}. Đang tiếp tục...`
           );
-
-          // Đặt timeout để hiển thị lỗi trong thời gian ngắn rồi tiếp tục
-          setTimeout(() => {
-            // Mặc dù có lỗi, vẫn tiếp tục xử lý khung hình tiếp theo
-            processedCount++;
-            processNextFrame(index + 1);
-          }, 2000);
         });
     }
-
-    // Bắt đầu xử lý khung hình từ đầu tiên
-    processNextFrame(0);
   }
 
-  // Hàm tạo ảnh mới từ khung hình sử dụng Gemini và Leonardo
-  function generateGeminiPromptAndImage(framePath) {
-    return new Promise((resolve, reject) => {
-      console.log("Processing frame:", framePath);
+  // ... existing code ...
 
-      // Đầu tiên gọi API tạo prompt từ Gemini
-      fetch("/generate-gemini-prompt", {
+  // Hàm tải ảnh về thư mục temp
+  async function downloadImageToTemp(imageUrl) {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const filename = `temp_${Date.now()}.jpg`;
+      const formData = new FormData();
+      formData.append("file", blob, filename);
+
+      const uploadResponse = await fetch("/save-temp-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to save image to temp folder");
+      }
+
+      const data = await uploadResponse.json();
+      return data.path;
+    } catch (error) {
+      console.error("Error downloading image to temp:", error);
+      throw error;
+    }
+  }
+
+  // Hàm tạo prompt và ảnh mới từ khung hình
+  async function generateGeminiPromptAndImage(framePath) {
+    try {
+      // Tải ảnh về temp
+      const tempImagePath = await downloadImageToTemp(framePath);
+
+      // Gọi API tạo prompt
+      const response = await fetch("/generate-video-prompt", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          keyframe_path: framePath,
+          keyframe_path: tempImagePath,
         }),
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(
-              `Lỗi HTTP: ${response.status} - ${response.statusText}`
-            );
-          }
-          // Kiểm tra content-type để đảm bảo là JSON
-          const contentType = response.headers.get("content-type");
-          if (!contentType || !contentType.includes("application/json")) {
-            throw new Error(
-              `Phản hồi không hợp lệ: content-type ${contentType}`
-            );
-          }
-          return response.json().then((data) => {
-            if (!data.success) {
-              throw new Error(data.error || "Lỗi khi tạo prompt với Gemini");
-            }
-            console.log(
-              "Successfully generated prompt:",
-              data.prompt.substring(0, 50) + "..."
-            );
-            return data;
-          });
-        })
-        .then((data) => {
-          const prompt = data.prompt;
-
-          // Tiếp theo gọi API tạo ảnh với Leonardo
-          return fetch("/generate-leonardo-image", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              prompt: prompt,
-            }),
-          });
-        })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(
-              `Lỗi HTTP: ${response.status} - ${response.statusText}`
-            );
-          }
-          // Kiểm tra content-type để đảm bảo là JSON
-          const contentType = response.headers.get("content-type");
-          if (!contentType || !contentType.includes("application/json")) {
-            throw new Error(
-              `Phản hồi không hợp lệ: content-type ${contentType}`
-            );
-          }
-          return response.json().then((data) => {
-            if (!data.success) {
-              throw new Error(data.error || "Lỗi khi tạo ảnh với Leonardo");
-            }
-            return data;
-          });
-        })
-        .then((data) => {
-          const generationId = data.generation_id;
-
-          // Hàm kiểm tra trạng thái tạo ảnh
-          function checkImageStatus() {
-            return fetch(`/get-leonardo-image/${generationId}`)
-              .then((response) => {
-                // Kiểm tra nếu response không OK (như 404, 500, v.v.)
-                if (!response.ok) {
-                  throw new Error(
-                    `Lỗi HTTP: ${response.status} - ${response.statusText}`
-                  );
-                }
-                // Kiểm tra content-type để đảm bảo là JSON
-                const contentType = response.headers.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                  throw new Error(
-                    `Phản hồi không hợp lệ: content-type ${contentType}`
-                  );
-                }
-                return response.json();
-              })
-              .then((result) => {
-                if (result.success) {
-                  if (result.complete) {
-                    // Ảnh đã được tạo thành công
-                    return {
-                      url: result.images[0].url,
-                      prompt: result.prompt,
-                    };
-                  } else {
-                    // Ảnh đang được tạo, đợi và kiểm tra lại
-                    return new Promise((resolve) => {
-                      setTimeout(() => {
-                        resolve(checkImageStatus());
-                      }, 3000); // Kiểm tra lại sau 3 giây
-                    });
-                  }
-                } else {
-                  throw new Error(
-                    result.error || "Không thể kiểm tra trạng thái tạo ảnh"
-                  );
-                }
-              });
-          }
-
-          // Bắt đầu kiểm tra trạng thái
-          return checkImageStatus();
-        })
-        .then((imageData) => {
-          resolve(imageData);
-        })
-        .catch((error) => {
-          console.error("Lỗi trong quá trình tạo ảnh:", error);
-          // Ghi log chi tiết hơn để giúp gỡ lỗi
-          if (error.stack) {
-            console.debug("Stack trace:", error.stack);
-          }
-
-          // Chuẩn bị thông báo lỗi cho người dùng
-          let errorMessage = error.message || "Lỗi không xác định";
-
-          // Một số lỗi có thể cần xử lý đặc biệt
-          if (errorMessage.includes("404")) {
-            errorMessage =
-              "Không tìm thấy API endpoint. Vui lòng kiểm tra cài đặt server.";
-          } else if (errorMessage.includes("content-type")) {
-            errorMessage =
-              "Server trả về định dạng không hợp lệ. Vui lòng kiểm tra API.";
-          }
-
-          reject(new Error(errorMessage));
-        });
-    });
-  }
-
-  // Add event listener for the auto process button
-  const autoProcessBtn = document.getElementById("auto-process-btn");
-  if (autoProcessBtn) {
-    // Hide the button initially
-    autoProcessBtn.parentElement.style.display = "none";
-
-    // KHÔNG thêm event listener ở đây vì đã được thêm trong displayResults và displayAzureResults
-  }
-
-  // Hàm tạo lại ảnh trong hàng đợi
-  function regenerateQueueImage(index) {
-    if (index < 0 || index >= imageQueue.length) {
-      showToast("Không tìm thấy ảnh trong hàng đợi");
-      return;
-    }
-
-    const imageData = imageQueue[index];
-    showToast("Đang tạo lại ảnh...");
-
-    // Lấy phần tử ảnh cần tạo lại trong giao diện
-    const queueImageItem = document.querySelector(
-      `.queue-image-item[data-index="${index}"]`
-    );
-    if (!queueImageItem) {
-      showToast("Không tìm thấy phần tử ảnh trong giao diện");
-      return;
-    }
-
-    // Lấy thẻ img để thay đổi
-    const imgElement = queueImageItem.querySelector("img");
-    if (!imgElement) {
-      showToast("Không tìm thấy ảnh để tạo lại");
-      return;
-    }
-
-    // Lưu URL ảnh gốc để phục hồi nếu có lỗi
-    const originalImageUrl = imgElement.src;
-
-    // Hiển thị hiệu ứng loading trên ảnh
-    const imageContainer = queueImageItem.querySelector(
-      ".queue-image-container"
-    );
-    imageContainer.innerHTML = `
-      <div class="loading-image-overlay">
-        <i class="fas fa-sync-alt fa-spin"></i>
-        <p>Đang tạo lại ảnh...</p>
-      </div>
-      <img src="${originalImageUrl}" alt="Đang tạo lại ảnh" style="opacity: 0.3;">
-    `;
-
-    // Vô hiệu hóa nút tạo lại
-    const regenerateBtn = queueImageItem.querySelector(
-      ".regenerate-queue-image-btn"
-    );
-    if (regenerateBtn) {
-      regenerateBtn.disabled = true;
-      regenerateBtn.innerHTML =
-        '<i class="fas fa-sync-alt fa-spin"></i> Đang tạo lại';
-    }
-
-    // Sử dụng Gemini để tạo prompt mới
-    fetch("/generate-new-prompt", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        original_prompt: imageData.prompt,
-      }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (!data.success) {
-          throw new Error(data.error || "Không thể tạo prompt mới");
-        }
-
-        // Cập nhật loading message
-        const loadingOverlay = imageContainer.querySelector(
-          ".loading-image-overlay"
-        );
-        if (loadingOverlay) {
-          loadingOverlay.innerHTML = `
-          <i class="fas fa-sync-alt fa-spin"></i>
-          <p>Đã tạo prompt mới, đang tạo ảnh...</p>
-        `;
-        }
-
-        // Tạo ảnh mới với prompt đã cập nhật
-        return fetch("/generate-leonardo-image", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            prompt: data.prompt,
-          }),
-        });
-      })
-      .then((response) => response.json())
-      .then((data) => {
-        if (!data.success) {
-          throw new Error(data.error || "Không thể tạo ảnh mới");
-        }
-
-        const generationId = data.generation_id;
-
-        // Hàm kiểm tra trạng thái tạo ảnh
-        function checkImageStatus() {
-          return fetch(`/get-leonardo-image/${generationId}`)
-            .then((response) => response.json())
-            .then((result) => {
-              if (result.success) {
-                if (result.complete) {
-                  // Cập nhật ảnh trong hàng đợi
-                  imageQueue[index].url = result.images[0].url;
-                  imageQueue[index].prompt = result.prompt;
-                  imageQueue[index].timestamp = Date.now();
-
-                  // Cập nhật giao diện với ảnh mới
-                  imageContainer.innerHTML = `<img src="${
-                    result.images[0].url
-                  }" alt="Ảnh ${index + 1}" loading="lazy">`;
-
-                  // Khôi phục lại nút tạo lại
-                  if (regenerateBtn) {
-                    regenerateBtn.disabled = false;
-                    regenerateBtn.innerHTML =
-                      '<i class="fas fa-sync-alt"></i> Tạo lại';
-                  }
-
-                  // Hiển thị thông báo thành công
-                  showToast("Đã tạo lại ảnh thành công!");
-
-                  return result;
-                } else {
-                  // Cập nhật tiến trình
-                  const progress = Math.round(result.progress || 0);
-                  const loadingOverlay = imageContainer.querySelector(
-                    ".loading-image-overlay"
-                  );
-                  if (loadingOverlay) {
-                    loadingOverlay.innerHTML = `
-                    <i class="fas fa-sync-alt fa-spin"></i>
-                    <p>Đang tạo ảnh... ${progress}%</p>
-                    <div class="progress-bar-small">
-                      <div class="progress-fill" style="width:${progress}%"></div>
-                    </div>
-                  `;
-                  }
-
-                  // Ảnh đang được tạo, đợi và kiểm tra lại
-                  return new Promise((resolve) => {
-                    setTimeout(() => {
-                      resolve(checkImageStatus());
-                    }, 3000); // Kiểm tra lại sau 3 giây
-                  });
-                }
-              } else {
-                throw new Error(
-                  result.error || "Không thể kiểm tra trạng thái tạo ảnh"
-                );
-              }
-            });
-        }
-
-        // Bắt đầu kiểm tra trạng thái
-        return checkImageStatus();
-      })
-      .catch((error) => {
-        console.error("Lỗi khi tạo lại ảnh:", error);
-
-        // Khôi phục lại ảnh gốc trong trường hợp lỗi
-        imageContainer.innerHTML = `<img src="${originalImageUrl}" alt="Ảnh ${
-          index + 1
-        }" loading="lazy">`;
-
-        // Khôi phục lại nút tạo lại
-        if (regenerateBtn) {
-          regenerateBtn.disabled = false;
-          regenerateBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Tạo lại';
-        }
-
-        // Hiển thị thông báo lỗi
-        showToast(`Lỗi: ${error.message}`);
       });
+
+      if (!response.ok) {
+        throw new Error("Lỗi khi tạo prompt");
+      }
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || "Lỗi khi tạo prompt");
+      }
+
+      // Gọi API tạo ảnh mới
+      const imageResponse = await fetch("/generate-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: data.prompt,
+          style: "realistic",
+        }),
+      });
+
+      if (!imageResponse.ok) {
+        throw new Error("Lỗi khi tạo ảnh mới");
+      }
+
+      const imageData = await imageResponse.json();
+      if (!imageData.success) {
+        throw new Error(imageData.error || "Lỗi khi tạo ảnh mới");
+      }
+
+      return {
+        url: imageData.image_path,
+        prompt: data.prompt,
+      };
+    } catch (error) {
+      console.error("Error in generateGeminiPromptAndImage:", error);
+      throw error;
+    }
   }
 });

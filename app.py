@@ -2290,75 +2290,6 @@ def generate_gemini_prompt():
         }), 500
 
 
-@app.route('/generate-prompt', methods=['POST'])
-def generate_prompt():
-    """API endpoint to generate a prompt for an image using ChatGPT"""
-    try:
-        data = request.json
-        keyframe_path = data.get('keyframe_path')
-        
-        if not keyframe_path:
-            return jsonify({'error': 'Missing keyframe path'}), 400
-        
-        # Check if path exists
-        full_path = os.path.join('static', keyframe_path)
-        if not os.path.exists(full_path):
-            return jsonify({'error': 'Image not found'}), 404
-        
-        # Read image and convert to base64
-        with open(full_path, "rb") as img_file:
-            image_data = img_file.read()
-            base64_image = base64.b64encode(image_data).decode('utf-8')
-        
-        # Call OpenAI API with the custom GPT
-        try:
-            import openai
-            
-            # Set your OpenAI API key
-            openai_api_key = os.getenv("OPENAI_API_KEY", "")
-            if not openai_api_key:
-                return jsonify({'error': 'OpenAI API key not configured'}), 500
-                
-            # Create OpenAI client
-            client = openai.OpenAI(api_key=openai_api_key)
-            
-            # Call the API with the current vision model (gpt-4o)
-            response = client.chat.completions.create(
-                model="gpt-4o",  # Updated to use gpt-4o which supports vision
-                messages=[
-                    {"role": "system", "content": "You are RoMidJourneyRo MJ Prompt Generator v6, a specialized prompt generator. Your task is to create detailed, creative prompts for images that could be used with Midjourney or similar AI image generators."},
-                    {"role": "user", "content": [
-                        {"type": "text", "text": "Hãy viết cho tôi 1 prompt hoàn chỉnh cho hình ảnh này. Prompt nên bao gồm chi tiết về chủ thể, phong cách, màu sắc, ánh sáng và các thông số kỹ thuật phù hợp."},
-                        {"type": "image_url", "image_url": f"data:image/jpeg;base64,{base64_image}"}
-                    ]}
-                ],
-                max_tokens=1000
-            )
-            
-            # Extract the generated prompt
-            generated_prompt = response.choices[0].message.content
-            
-            return jsonify({
-                'success': True,
-                'prompt': generated_prompt
-            })
-            
-        except ImportError:
-            # Fallback if OpenAI package is not installed
-            return jsonify({
-                'success': False,
-                'error': 'OpenAI package not installed. Please install it with: pip install openai>=1.0.0'
-            }), 500
-        except Exception as api_error:
-            logging.error(f"OpenAI API error: {str(api_error)}")
-            return jsonify({
-                'success': False,
-                'error': f"Error calling OpenAI API: {str(api_error)}"
-            }), 500
-            
-    except Exception as e:
-        logging.error(f"Error generating prompt: {str(e)}")
-        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/azure-credentials', methods=['GET'])
@@ -3222,6 +3153,130 @@ def generate_new_prompt():
         return jsonify({
             'success': False,
             'error': f"Lỗi server: {str(e)}"
+        }), 500
+
+@app.route('/generate-video-prompt', methods=['POST'])
+def generate_video_prompt():
+    """API endpoint để tạo prompt video từ hình ảnh sử dụng Gemini"""
+    try:
+        data = request.json
+        keyframe_path = data.get('keyframe_path')
+        
+        if not keyframe_path:
+            return jsonify({'error': 'Thiếu đường dẫn hình ảnh'}), 400
+        
+        # Kiểm tra rate limit
+        if not check_rate_limit():
+            return jsonify({'error': 'Gemini API rate limit exceeded. Please try again later.'}), 429
+        
+        # Đọc hình ảnh
+        full_path = os.path.join('static', keyframe_path)
+        if not os.path.exists(full_path):
+            return jsonify({'error': 'Không tìm thấy hình ảnh'}), 404
+            
+        with open(full_path, "rb") as img_file:
+            image_data = img_file.read()
+        
+        # Cấu hình Gemini model
+        generation_config = {
+            "temperature": 0.9,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 4096,
+        }
+        
+        safety_settings = [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            }
+        ]
+        
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            generation_config=generation_config,
+            safety_settings=safety_settings
+        )
+        
+        # Prompt cho Gemini
+        prompt = "Write an English prompt to create a video in Kling AI (prompt without audio description) from this image. Only return 1 prompt with no other characters"
+        
+        # Tạo nội dung cho request
+        contents = [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": prompt},
+                    {
+                        "inline_data": {
+                            "mime_type": "image/jpeg",
+                            "data": base64.b64encode(image_data).decode('utf-8')
+                        }
+                    }
+                ]
+            }
+        ]
+        
+        # Gọi API Gemini
+        response = model.generate_content(contents)
+        
+        return jsonify({
+            'success': True,
+            'prompt': response.text
+        })
+        
+    except Exception as e:
+        logging.error(f"Error generating video prompt with Gemini: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/save-temp-image', methods=['POST'])
+def save_temp_image():
+    """API endpoint để lưu ảnh vào thư mục temp"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'Không có file được gửi'}), 400
+            
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'Không có file được chọn'}), 400
+            
+        # Tạo thư mục temp nếu chưa tồn tại
+        temp_dir = os.path.join('static', 'temp')
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+            
+        # Lưu file với tên duy nhất
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(temp_dir, filename)
+        file.save(file_path)
+        
+        # Trả về đường dẫn tương đối
+        relative_path = os.path.join('temp', filename)
+        return jsonify({
+            'success': True,
+            'path': relative_path
+        })
+        
+    except Exception as e:
+        logging.error(f"Error saving temp image: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
 
 if __name__ == '__main__':
