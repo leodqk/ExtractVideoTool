@@ -8,15 +8,36 @@
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
     />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/azure.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Add JSZip library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Add FileSaver.js library for better file download support -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   </head>
   <body>
     <div class="container">
       <header>
-        <h1>Trích xuất Khung hình Chính từ Video</h1>
+        <h1><i class="fas fa-film"></i> Video Generator</h1>
         <p>
           Tải lên video hoặc nhập URL YouTube/TikTok và chọn phương pháp trích
           xuất phù hợp
         </p>
+        <div class="header-actions">
+          <button id="view-image-queue" class="queue-btn" style="display: none">
+            <i class="fas fa-layer-group"></i> Xem hàng đợi
+          </button>
+        </div>
       </header>
 
       <main>
@@ -24,34 +45,27 @@
           <div class="upload-container" id="upload-container">
             <div class="upload-tabs">
               <div class="upload-tab active" data-tab="file-upload">
-                Tải lên File
+                <i class="fas fa-file-video"></i> Tải lên File
               </div>
-              <div class="upload-tab" data-tab="youtube-upload">Từ YouTube</div>
-              <div class="upload-tab" data-tab="tiktok-upload">Từ TikTok</div>
+              <div class="upload-tab" data-tab="youtube-upload">
+                <i class="fab fa-youtube"></i> Từ YouTube
+              </div>
+              <div class="upload-tab" data-tab="tiktok-upload">
+                <i class="fab fa-tiktok"></i> Từ TikTok
+              </div>
             </div>
 
             <div class="upload-content" id="file-upload">
               <div class="upload-area" id="upload-area">
                 <div class="upload-icon">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="48"
-                    height="48"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="17 8 12 3 7 8"></polyline>
-                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                  </svg>
+                  <i class="fas fa-cloud-upload-alt fa-3x"></i>
                 </div>
                 <p>
                   Kéo thả video vào đây hoặc
                   <span class="browse-text">chọn file</span>
+                </p>
+                <p class="supported-formats">
+                  Hỗ trợ: MP4, AVI, MOV, MKV, WEBM
                 </p>
                 <input
                   type="file"
@@ -69,24 +83,7 @@
             >
               <div class="youtube-form">
                 <div class="youtube-icon">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="48"
-                    height="48"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path
-                      d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"
-                    ></path>
-                    <polygon
-                      points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"
-                    ></polygon>
-                  </svg>
+                  <i class="fab fa-youtube fa-3x"></i>
                 </div>
                 <label for="youtube-url">Nhập URL video YouTube:</label>
                 <input
@@ -96,7 +93,8 @@
                   class="youtube-input"
                 />
                 <p class="youtube-tip">
-                  Hỗ trợ các URL từ youtube.com hoặc youtu.be
+                  <i class="fas fa-info-circle"></i> Hỗ trợ các URL từ
+                  youtube.com hoặc youtu.be
                 </p>
               </div>
             </div>
@@ -108,22 +106,7 @@
             >
               <div class="tiktok-form">
                 <div class="tiktok-icon">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="48"
-                    height="48"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path
-                      d="M21 8v8a5 5 0 01-5 5H8a5 5 0 01-5-5V8a5 5 0 015-5h8a5 5 0 015 5z"
-                    ></path>
-                    <path d="M10 12a3 3 0 103 3V6c.333 1 1.6 3 4 3"></path>
-                  </svg>
+                  <i class="fab fa-tiktok fa-3x"></i>
                 </div>
                 <label for="tiktok-url">Nhập URL video TikTok:</label>
                 <input
@@ -133,43 +116,18 @@
                   class="tiktok-input"
                 />
                 <p class="tiktok-tip">
-                  Hỗ trợ các URL từ tiktok.com hoặc vm.tiktok.com
+                  <i class="fas fa-info-circle"></i> Hỗ trợ các URL từ
+                  tiktok.com hoặc vm.tiktok.com
                 </p>
               </div>
             </div>
 
             <div class="method-selection">
-              <h3>Chọn phương pháp trích xuất</h3>
+              <h3><i class="fas fa-cogs"></i> Chọn phương pháp trích xuất</h3>
               <div class="method-options">
                 <div class="method-option active" data-method="method1">
                   <div class="method-icon">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <rect
-                        x="2"
-                        y="2"
-                        width="20"
-                        height="20"
-                        rx="2.18"
-                        ry="2.18"
-                      ></rect>
-                      <line x1="7" y1="2" x2="7" y2="22"></line>
-                      <line x1="17" y1="2" x2="17" y2="22"></line>
-                      <line x1="2" y1="12" x2="22" y2="12"></line>
-                      <line x1="2" y1="7" x2="7" y2="7"></line>
-                      <line x1="2" y1="17" x2="7" y2="17"></line>
-                      <line x1="17" y1="17" x2="22" y2="17"></line>
-                      <line x1="17" y1="7" x2="22" y2="7"></line>
-                    </svg>
+                    <i class="fas fa-chart-line"></i>
                   </div>
                   <div class="method-details">
                     <h4>Phương pháp 1: Phân tích sự thay đổi</h4>
@@ -177,107 +135,227 @@
                       Phát hiện các khung hình có sự thay đổi lớn so với khung
                       hình trước đó.
                     </p>
-                    <p>Phù hợp với video có chuyển động liên tục.</p>
+                    <p>
+                      <i class="fas fa-check-circle"></i> Phù hợp với video có
+                      chuyển động liên tục.
+                    </p>
                   </div>
                 </div>
-                <div class="method-option" data-method="method2">
+
+                <div class="method-option" data-method="method3">
                   <div class="method-icon">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <rect
-                        x="2"
-                        y="2"
-                        width="20"
-                        height="20"
-                        rx="2.18"
-                        ry="2.18"
-                      ></rect>
-                      <line x1="8" y1="2" x2="8" y2="22"></line>
-                      <line x1="16" y1="2" x2="16" y2="22"></line>
-                    </svg>
+                    <i class="fas fa-film"></i>
                   </div>
                   <div class="method-details">
-                    <h4>Phương pháp 2: Phát hiện chuyển cảnh</h4>
+                    <h4>Phương pháp 2: Phát hiện Transition</h4>
                     <p>
-                      Phát hiện điểm chuyển cảnh và chọn khung hình đại diện cho
-                      mỗi cảnh.
+                      Phát hiện và lọc ra các khung hình trong quá trình chuyển
+                      cảnh (fade in/out).
                     </p>
-                    <p>Phù hợp với video có nhiều cảnh riêng biệt.</p>
+                    <p>
+                      <i class="fas fa-check-circle"></i> Phù hợp với video có
+                      hiệu ứng chuyển cảnh mờ dần.
+                    </p>
                   </div>
                 </div>
+
+                <div class="method-option" data-method="azure">
+                  <div class="method-icon">
+                    <i class="fab fa-microsoft"></i>
+                  </div>
+                  <div class="method-details">
+                    <h4>Phương pháp 3: Azure Video Indexer</h4>
+                    <p>
+                      Sử dụng Azure AI để phát hiện cảnh và phiên âm chính xác.
+                    </p>
+                    <p>
+                      <i class="fas fa-check-circle"></i> Phù hợp với video phức
+                      tạp cần phân tích chuyên sâu.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="auto-process-container">
+                <button id="auto-process-btn" class="auto-process-btn">
+                  <i class="fas fa-magic"></i> Tự động thao tác
+                </button>
+                <p class="auto-process-note">
+                  <i class="fas fa-info-circle"></i> Tự động trích xuất, tạo ảnh
+                  mới và lưu vào hàng đợi
+                </p>
               </div>
             </div>
 
             <div class="settings">
-              <h3>Tùy chỉnh tham số</h3>
+              <h3><i class="fas fa-sliders-h"></i> Tùy chỉnh tham số</h3>
 
               <!-- Tham số chung -->
-              <div class="setting-item">
-                <label for="threshold">Ngưỡng phát hiện thay đổi:</label>
-                <input
-                  type="range"
-                  id="threshold"
-                  min="5"
-                  max="50"
-                  value="30"
-                  class="slider"
-                />
-                <span id="threshold-value">30</span>
-              </div>
-              <div class="setting-item">
-                <label for="max-frames">Số khung hình tối đa:</label>
-                <input
-                  type="number"
-                  id="max-frames"
-                  min="5"
-                  max="50"
-                  value="20"
-                />
-              </div>
-
-              <!-- Tham số riêng cho phương pháp 2 -->
-              <div class="setting-item method2-setting" style="display: none">
-                <label for="min-scene-length"
-                  >Độ dài tối thiểu của cảnh (frames):</label
-                >
-                <input
-                  type="number"
-                  id="min-scene-length"
-                  min="5"
-                  max="100"
-                  value="15"
-                />
-              </div>
-
-              <!-- Trích xuất âm thanh -->
-              <div class="setting-item audio-setting">
-                <label for="extract-audio">Trích xuất âm thanh:</label>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="extract-audio" checked />
-                  <span class="toggle-slider"></span>
+              <div class="setting-group">
+                <h4>Tham số cơ bản</h4>
+                <div class="setting-item">
+                  <label for="threshold">Ngưỡng phát hiện thay đổi:</label>
+                  <div class="slider-container">
+                    <input
+                      type="range"
+                      id="threshold"
+                      min="5"
+                      max="50"
+                      value="30"
+                      class="slider"
+                    />
+                    <span id="threshold-value">30</span>
+                  </div>
+                </div>
+                <div class="setting-item">
+                  <label for="max-frames">Số khung hình tối đa:</label>
+                  <input
+                    type="number"
+                    id="max-frames"
+                    min="5"
+                    max="10000"
+                    value="1000"
+                  />
                 </div>
               </div>
 
-              <!-- Phát hiện trùng lặp -->
-              <div class="setting-item duplicate-setting">
-                <label for="detect-duplicates">Phát hiện ảnh trùng lặp:</label>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="detect-duplicates" checked />
-                  <span class="toggle-slider"></span>
+              <!-- Tham số riêng cho phương pháp 2 -->
+              <div class="setting-group method2-setting" style="display: none">
+                <h4>Tham số phát hiện cảnh</h4>
+                <div class="setting-item">
+                  <label for="min-scene-length"
+                    >Độ dài tối thiểu của cảnh (frames):</label
+                  >
+                  <input
+                    type="number"
+                    id="min-scene-length"
+                    min="5"
+                    max="100"
+                    value="15"
+                  />
+                </div>
+              </div>
+
+              <!-- Tham số riêng cho phương pháp 3 -->
+              <div class="setting-group method3-setting" style="display: none">
+                <h4>Tham số phát hiện transition</h4>
+                <div class="setting-item">
+                  <label for="transition-threshold"
+                    >Ngưỡng phát hiện transition:</label
+                  >
+                  <div class="slider-container">
+                    <input
+                      type="range"
+                      id="transition-threshold"
+                      min="0.2"
+                      max="0.8"
+                      step="0.05"
+                      value="0.35"
+                      class="slider"
+                    />
+                    <span id="transition-threshold-value">0.35</span>
+                  </div>
+                </div>
+                <div class="threshold-info">
+                  <i class="fas fa-info-circle"></i> Ngưỡng thấp (0.2-0.3): Chỉ
+                  lọc các transition rõ ràng | Ngưỡng cao (0.6-0.8): Lọc cả
+                  transition nhẹ
+                </div>
+              </div>
+
+              <!-- Azure-specific settings - initially hidden -->
+              <div class="setting-group azure-setting" style="display: none">
+                <h4>Cài đặt Azure Video Indexer</h4>
+                <div class="form-group">
+                  <label for="azure-api-key">API Key:</label>
+                  <div class="password-field">
+                    <input
+                      type="password"
+                      id="azure-api-key"
+                      placeholder="Nhập Azure Video Indexer API Key"
+                    />
+                    <button type="button" class="toggle-password">
+                      <i class="fas fa-eye"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="azure-account-id">Account ID:</label>
+                  <input
+                    type="text"
+                    id="azure-account-id"
+                    placeholder="Nhập Azure Account ID"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="azure-location">Location:</label>
+                  <input
+                    type="text"
+                    id="azure-location"
+                    value="trial"
+                    placeholder="Azure region (e.g., trial)"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="azure-language">Ngôn ngữ:</label>
+                  <select id="azure-language">
+                    <option value="auto">Tự động phát hiện</option>
+                    <option value="vi-VN" selected>Tiếng Việt</option>
+                    <option value="en-US">Tiếng Anh</option>
+                    <option value="zh-CN">Tiếng Trung</option>
+                    <option value="ja-JP">Tiếng Nhật</option>
+                    <option value="ko-KR">Tiếng Hàn</option>
+                    <option value="fr-FR">Tiếng Pháp</option>
+                    <option value="de-DE">Tiếng Đức</option>
+                  </select>
+                </div>
+                <div class="checkbox-group">
+                  <div class="form-group">
+                    <label>
+                      <input type="checkbox" id="azure-force-upload" />
+                      <span
+                        >Bắt buộc tải lại video (xóa video cũ nếu tồn tại)</span
+                      >
+                    </label>
+                  </div>
+                  <div class="form-group">
+                    <label>
+                      <input type="checkbox" id="azure-use-existing" checked />
+                      <span>Sử dụng kết quả phân tích có sẵn nếu có</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Trích xuất âm thanh và phát hiện trùng lặp -->
+              <div class="setting-group">
+                <h4>Tùy chọn bổ sung</h4>
+                <div class="setting-item audio-setting">
+                  <label for="extract-audio">Trích xuất âm thanh:</label>
+                  <div class="checkbox-wrapper">
+                    <input type="checkbox" id="extract-audio" checked />
+                    <label for="extract-audio" class="checkbox-label"
+                      >Bật</label
+                    >
+                  </div>
+                </div>
+
+                <div class="setting-item duplicate-setting">
+                  <label for="detect-duplicates"
+                    >Phát hiện ảnh trùng lặp:</label
+                  >
+                  <div class="checkbox-wrapper">
+                    <input type="checkbox" id="detect-duplicates" checked />
+                    <label for="detect-duplicates" class="checkbox-label"
+                      >Bật</label
+                    >
+                  </div>
                 </div>
               </div>
             </div>
 
-            <button id="extract-btn">Trích xuất Khung hình</button>
+            <button id="extract-btn" class="primary-btn">
+              <i class="fas fa-play"></i> Trích xuất Khung hình
+            </button>
           </div>
 
           <div
@@ -285,6 +363,7 @@
             id="progress-container"
             style="display: none"
           >
+            <h3><i class="fas fa-cog fa-spin"></i> Đang xử lý video</h3>
             <div class="progress-bar">
               <div class="progress" id="progress"></div>
             </div>
@@ -304,7 +383,7 @@
           id="results-section"
           style="display: none"
         >
-          <h2>Kết quả trích xuất</h2>
+          <h2><i class="fas fa-photo-video"></i> Kết quả trích xuất</h2>
 
           <div class="results-header">
             <div class="video-info" id="video-info">
@@ -326,99 +405,90 @@
             id="transcript-section"
             style="display: none"
           >
-            <h3>Phiên âm</h3>
+            <h3><i class="fas fa-microphone-alt"></i> Phiên âm</h3>
             <div class="transcript-content" id="transcript-content">
               <!-- Phiên âm sẽ được hiển thị ở đây -->
             </div>
           </div>
 
           <!-- Phần cài đặt ngưỡng trùng lặp với nút áp dụng -->
-          <!-- Cài đặt ngưỡng độ khác biệt -->
-          <div class="setting-item difference-threshold-setting">
-            <label for="difference-threshold">Ngưỡng độ khác biệt:</label>
-            <div class="threshold-control">
-              <input
-                type="range"
-                id="difference-threshold"
-                min="0.1"
-                max="0.5"
-                step="0.05"
-                value="0.3"
-                class="slider"
-              />
-              <span id="difference-threshold-value">0.3</span>
+          <div class="filtering-options">
+            <h3><i class="fas fa-filter"></i> Tùy chọn lọc khung hình</h3>
+            <!-- Cài đặt ngưỡng độ khác biệt -->
+            <div class="setting-item difference-threshold-setting">
+              <label for="difference-threshold">Ngưỡng độ khác biệt:</label>
+              <div class="slider-container">
+                <input
+                  type="range"
+                  id="difference-threshold"
+                  min="0.1"
+                  max="0.5"
+                  step="0.01"
+                  value="0.32"
+                  class="slider"
+                />
+                <span id="difference-threshold-value">0.32</span>
+              </div>
             </div>
-          </div>
-          <div class="threshold-info">
-            Ngưỡng thấp (0.1-0.2): Giữ nhiều khung hình | Ngưỡng cao (0.3-0.5):
-            Chỉ giữ khung hình khác biệt rõ rệt
-          </div>
-          <div class="apply-threshold-container">
-            <button id="apply-threshold-btn">Áp dụng ngưỡng và Lọc</button>
+            <div class="threshold-info">
+              <i class="fas fa-info-circle"></i> Ngưỡng thấp (0.1-0.2): Giữ
+              nhiều khung hình | Ngưỡng cao (0.3-0.5): Chỉ giữ khung hình khác
+              biệt rõ rệt
+            </div>
+            <div class="apply-threshold-container">
+              <button id="apply-threshold-btn" class="secondary-btn">
+                <i class="fas fa-filter"></i> Áp dụng ngưỡng và Lọc
+              </button>
+            </div>
           </div>
 
           <!-- Thông báo ảnh tương tự -->
-          <div
-            class="similarity-notification"
-            id="similarity-notification"
-            style="display: none"
-          >
-            <div class="notification-content">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-              <p>
-                Phát hiện <span id="similar-count">0</span> ảnh có độ khác biệt
-                thấp
-              </p>
-              <button id="remove-similar-btn">
-                Xóa ảnh có độ khác biệt thấp
-              </button>
+          <div class="notification-container">
+            <div
+              class="similarity-notification"
+              id="similarity-notification"
+              style="display: none"
+            >
+              <div class="notification-content">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>
+                  Phát hiện <span id="similar-count">0</span> ảnh có độ khác
+                  biệt thấp
+                </p>
+                <button id="remove-similar-btn" class="danger-btn">
+                  <i class="fas fa-trash-alt"></i> Xóa ảnh có độ khác biệt thấp
+                </button>
+              </div>
+            </div>
+
+            <!-- Thông báo ảnh trùng lặp -->
+            <div
+              class="duplicate-notification"
+              id="duplicate-notification"
+              style="display: none"
+            >
+              <div class="notification-content">
+                <i class="fas fa-clone"></i>
+                <p>
+                  Phát hiện <span id="duplicate-count">0</span> ảnh trùng lặp
+                </p>
+                <button id="remove-duplicates-btn" class="danger-btn">
+                  <i class="fas fa-trash-alt"></i> Xóa tất cả ảnh trùng lặp
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Thông báo ảnh trùng lặp -->
-          <div
-            class="duplicate-notification"
-            id="duplicate-notification"
-            style="display: none"
-          >
-            <div class="notification-content">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-              <p>Phát hiện <span id="duplicate-count">0</span> ảnh trùng lặp</p>
-              <button id="remove-duplicates-btn">
-                Xóa tất cả ảnh trùng lặp
-              </button>
-            </div>
+          <h3><i class="fas fa-images"></i> Các khung hình đã trích xuất</h3>
+          <div class="auto-process-container">
+            <button id="auto-process-keyframes-btn" class="auto-process-btn">
+              <i class="fas fa-magic"></i> Tự động thao tác
+            </button>
+            <p class="auto-process-note">
+              <i class="fas fa-info-circle"></i> Tự động tạo ảnh mới và lưu vào
+              hàng đợi
+            </p>
           </div>
-
-          <h3>Các khung hình đã trích xuất</h3>
           <div class="gallery" id="keyframes-gallery">
             <!-- Các khung hình sẽ được hiển thị ở đây -->
           </div>
@@ -429,7 +499,7 @@
             id="generated-images-section"
             style="display: none"
           >
-            <h3>Ảnh được tạo ra</h3>
+            <h3><i class="fas fa-palette"></i> Ảnh được tạo ra</h3>
             <div class="loading-container">
               <p>Đang tạo ảnh mới, vui lòng đợi...</p>
               <div class="loading-spinner">
@@ -446,39 +516,54 @@
           </div>
 
           <div class="actions">
-            <button id="download-all-btn">Tải xuống tất cả</button>
-            <button id="extract-script-btn">Trích xuất kịch bản</button>
-            <button id="new-video-btn">Xử lý video khác</button>
+            <button id="download-all-btn" class="primary-btn">
+              <i class="fas fa-download"></i> Tải xuống tất cả
+            </button>
+            <button id="extract-script-btn" class="secondary-btn">
+              <i class="fas fa-file-alt"></i> Trích xuất kịch bản
+            </button>
+            <button id="check-paths-btn" class="info-btn">
+              <i class="fas fa-search"></i> Kiểm tra đường dẫn ảnh
+            </button>
+            <button id="new-video-btn" class="outline-btn">
+              <i class="fas fa-video"></i> Xử lý video khác
+            </button>
           </div>
 
           <!-- Phần hiển thị kịch bản -->
           <div class="script-section" id="script-section" style="display: none">
-            <h3>Kịch bản được trích xuất</h3>
+            <h3><i class="fas fa-file-alt"></i> Kịch bản được trích xuất</h3>
 
             <div class="script-settings">
               <div class="setting-item">
                 <label for="script-temperature"
                   >Độ sáng tạo (Temperature):</label
                 >
-                <input
-                  type="range"
-                  id="script-temperature"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value="0.7"
-                  class="slider"
-                />
-                <span id="temperature-value">0.7</span>
+                <div class="slider-container">
+                  <input
+                    type="range"
+                    id="script-temperature"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value="0.7"
+                    class="slider"
+                  />
+                  <span id="temperature-value">0.7</span>
+                </div>
               </div>
               <div class="temperature-info">
-                Temperature thấp (0.0-0.3): Chính xác, ít sáng tạo | Temperature
-                cao (0.8-1.0): Sáng tạo, đa dạng
+                <i class="fas fa-info-circle"></i> Temperature thấp (0.0-0.3):
+                Chính xác, ít sáng tạo | Temperature cao (0.8-1.0): Sáng tạo, đa
+                dạng
               </div>
             </div>
 
             <div class="script-loading" id="script-loading">
-              <p>Đang phân tích các khung hình và tạo kịch bản...</p>
+              <p>
+                <i class="fas fa-spinner fa-spin"></i> Đang phân tích các khung
+                hình và tạo kịch bản...
+              </p>
               <div class="loading-spinner">
                 <img
                   src="{{ url_for('static', filename='img/loading.gif') }}"

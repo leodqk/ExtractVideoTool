@@ -9,3 +9,6 @@ pillow
 SpeechRecognition
 pydub
 whisper
+imagehash
+werkzeug
+flask-cors
