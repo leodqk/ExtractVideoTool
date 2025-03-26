@@ -385,6 +385,18 @@ document.addEventListener("DOMContentLoaded", function () {
         setting.style.display = "none";
       });
 
+      // Hide all setting groups when Azure method is selected
+      const settingGroups = document.querySelectorAll(".setting-group");
+      if (selectedMethod === "azure") {
+        settingGroups.forEach((group) => {
+          group.style.display = "none";
+        });
+      } else {
+        settingGroups.forEach((group) => {
+          group.style.display = "block";
+        });
+      }
+
       // Show appropriate settings based on selected method
       if (selectedMethod === "method2") {
         method2Settings.forEach((setting) => {

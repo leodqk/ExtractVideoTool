@@ -25,7 +25,7 @@
 
 /* Azure settings section */
 .azure-setting {
-  background-color: var(--azure-bg-light);
+  background-color: #f5f7fa;
   border: 1px solid var(--azure-border);
   border-radius: 10px;
 }
