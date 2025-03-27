@@ -1,4 +1,14 @@
 document.addEventListener("DOMContentLoaded", function () {
+  // Debug mode
+  const DEBUG = true;
+
+  // Enhanced console log for debugging
+  function debugLog(...args) {
+    if (DEBUG) {
+      console.log("[DEBUG]", ...args);
+    }
+  }
+
   // Elements
   const uploadArea = document.getElementById("upload-area");
   const fileInput = document.getElementById("file-input");
@@ -15,12 +25,14 @@ document.addEventListener("DOMContentLoaded", function () {
   const downloadAllBtn = document.getElementById("download-all-btn");
   const extractScriptBtn = document.getElementById("extract-script-btn");
   const newVideoBtn = document.getElementById("new-video-btn");
+  const checkPathsBtn = document.getElementById("check-paths-btn");
   const thresholdSlider = document.getElementById("threshold");
   const thresholdValue = document.getElementById("threshold-value");
   const maxFramesInput = document.getElementById("max-frames");
   const minSceneLengthInput = document.getElementById("min-scene-length");
   const methodOptions = document.querySelectorAll(".method-option");
   const method2Settings = document.querySelectorAll(".method2-setting");
+  const method3Settings = document.querySelectorAll(".method3-setting");
   const uploadTabs = document.querySelectorAll(".upload-tab");
   const uploadContents = document.querySelectorAll(".upload-content");
   const youtubeUrlInput = document.getElementById("youtube-url");
@@ -32,6 +44,12 @@ document.addEventListener("DOMContentLoaded", function () {
   );
   const differenceThresholdValue = document.getElementById(
     "difference-threshold-value"
+  );
+  const transitionThresholdSlider = document.getElementById(
+    "transition-threshold"
+  );
+  const transitionThresholdValue = document.getElementById(
+    "transition-threshold-value"
   );
   const applyThresholdBtn = document.getElementById("apply-threshold-btn");
   const scriptSection = document.getElementById("script-section");
@@ -52,18 +70,218 @@ document.addEventListener("DOMContentLoaded", function () {
   );
   const similarCount = document.getElementById("similar-count");
   const removeSimilarBtn = document.getElementById("remove-similar-btn");
+  const duplicateNotification = document.getElementById(
+    "duplicate-notification"
+  );
+  const duplicateCount = document.getElementById("duplicate-count");
+  const removeDuplicatesBtn = document.getElementById("remove-duplicates-btn");
+  const togglePasswordBtns = document.querySelectorAll(".toggle-password");
 
   let selectedFile = null;
   let currentSessionId = null;
   let selectedMethod = "method1";
   let activeUploadMethod = "file-upload";
   let keyframesData = []; // Lưu trữ dữ liệu khung hình
-  let differenceThreshold = 0.3; // Ngưỡng độ khác biệt mặc định
+  let differenceThreshold = 0.32; // Ngưỡng độ khác biệt mặc định
+
+  // Khai báo biến toàn cục để lưu trữ hàng đợi hình ảnh
+  let imageQueue = [];
+
+  // Hàm để thêm ảnh vào hàng đợi
+  function addToImageQueue(imageData) {
+    // Kiểm tra xem ảnh đã tồn tại trong hàng đợi chưa
+    const exists = imageQueue.some((img) => img.url === imageData.url);
+    if (!exists) {
+      // Thêm thuộc tính order dựa trên vị trí hiện tại trong hàng đợi
+      imageData.order = imageQueue.length;
+      imageQueue.push(imageData);
+      showToast(`Đã thêm ảnh vào hàng đợi (${imageQueue.length} ảnh)`);
+      updateQueueButton();
+    } else {
+      showToast("Ảnh này đã có trong hàng đợi");
+    }
+  }
+
+  // Hàm để cập nhật nút hiển thị hàng đợi
+  function updateQueueButton() {
+    const queueBtn = document.getElementById("view-image-queue");
+    if (queueBtn) {
+      if (imageQueue.length > 0) {
+        queueBtn.textContent = `Xem hàng đợi (${imageQueue.length})`;
+        queueBtn.style.display = "flex";
+      } else {
+        queueBtn.style.display = "none";
+      }
+    }
+  }
+
+  // Hàm để hiển thị modal hàng đợi
+  function showImageQueueModal() {
+    // Tạo modal
+    const modalOverlay = document.createElement("div");
+    modalOverlay.className = "modal-overlay";
+
+    // Tạo nội dung modal
+    const modal = document.createElement("div");
+    modal.className = "modal image-queue-modal";
+
+    let modalContent = `
+      <div class="modal-header">
+        <h3><i class="fas fa-images"></i> Hàng đợi ảnh (${imageQueue.length} ảnh)</h3>
+        <button class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+    `;
+
+    if (imageQueue.length === 0) {
+      modalContent += `
+        <div class="empty-queue">
+          <p><i class="fas fa-info-circle"></i> Hàng đợi trống</p>
+          <p>Bạn chưa thêm ảnh nào vào hàng đợi</p>
+        </div>
+      `;
+    } else {
+      modalContent += `
+        <div class="queue-actions">
+          <button id="download-all-queue-btn" class="download-all-btn">
+            <i class="fas fa-download"></i> Tải xuống tất cả
+          </button>
+          <button id="clear-queue-btn" class="danger-btn">
+            <i class="fas fa-trash-alt"></i> Xóa tất cả
+          </button>
+        </div>
+        <div class="image-queue-gallery">
+      `;
+
+      // Thêm các ảnh trong hàng đợi
+      imageQueue.forEach((image, index) => {
+        modalContent += `
+          <div class="queue-image-item" data-index="${index}">
+            <div class="queue-image-container">
+              <img src="${image.url}" alt="Ảnh ${index + 1}" loading="lazy">
+            </div>
+            <div class="queue-image-actions">
+              <button class="download-queue-image-btn" data-index="${index}">
+                <i class="fas fa-download"></i> Tải xuống
+              </button>
+              <button class="remove-queue-image-btn" data-index="${index}">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      modalContent += `
+        </div>
+      `;
+    }
+
+    modalContent += `
+      </div>
+    `;
+
+    modal.innerHTML = modalContent;
+    modalOverlay.appendChild(modal);
+    document.body.appendChild(modalOverlay);
+
+    // Thêm sự kiện cho nút đóng
+    const closeBtn = modal.querySelector(".close-btn");
+    closeBtn.addEventListener("click", function () {
+      if (confirm("Bạn có chắc chắn muốn hủy quá trình tự động thao tác?")) {
+        document.body.removeChild(modalOverlay);
+      }
+    });
+
+    // Thêm sự kiện cho các nút trong modal nếu có ảnh
+    if (imageQueue.length > 0) {
+      // Sự kiện tải xuống tất cả
+      modal
+        .querySelector("#download-all-queue-btn")
+        .addEventListener("click", function () {
+          // Lấy danh sách URL theo đúng thứ tự trong hàng đợi
+          const urls = imageQueue.map((img) => img.url);
+          downloadImagesAsZip(urls, `queue-images-${Date.now()}.zip`);
+        });
+
+      // Sự kiện xóa tất cả
+      modal
+        .querySelector("#clear-queue-btn")
+        .addEventListener("click", function () {
+          if (confirm("Bạn có chắc chắn muốn xóa tất cả ảnh trong hàng đợi?")) {
+            imageQueue = [];
+            updateQueueButton();
+            showToast("Đã xóa tất cả ảnh trong hàng đợi");
+            document.body.removeChild(modalOverlay);
+          }
+        });
+
+      // Sự kiện tải xuống từng ảnh
+      const downloadBtns = modal.querySelectorAll(".download-queue-image-btn");
+      downloadBtns.forEach((btn) => {
+        btn.addEventListener("click", function () {
+          const index = parseInt(this.dataset.index);
+          downloadImage(imageQueue[index].url);
+        });
+      });
+
+      // Sự kiện xóa từng ảnh
+      const removeBtns = modal.querySelectorAll(".remove-queue-image-btn");
+      removeBtns.forEach((btn) => {
+        btn.addEventListener("click", function () {
+          const index = parseInt(this.dataset.index);
+          imageQueue.splice(index, 1);
+          updateQueueButton();
+          showToast("Đã xóa ảnh khỏi hàng đợi");
+          document.body.removeChild(modalOverlay);
+          showImageQueueModal(); // Hiển thị lại modal
+        });
+      });
+    }
+  }
+
+  // Hàm chuyển đổi đường dẫn Windows (backslash) sang đường dẫn web (forward slash)
+  function normalizeImagePath(path) {
+    if (!path) return null;
+
+    // Chuyển đổi backslash sang forward slash
+    let normalizedPath = path.replace(/\\/g, "/");
+
+    // Kiểm tra xem đường dẫn đã có /static/ chưa
+    if (
+      !normalizedPath.startsWith("/static/") &&
+      !normalizedPath.startsWith("http") &&
+      !normalizedPath.startsWith("data:")
+    ) {
+      normalizedPath = `/static/${normalizedPath}`;
+    }
+
+    return normalizedPath;
+  }
+
+  // Toggle password visibility
+  if (togglePasswordBtns) {
+    togglePasswordBtns.forEach((btn) => {
+      btn.addEventListener("click", function () {
+        const passwordField = this.previousElementSibling;
+        if (passwordField.type === "password") {
+          passwordField.type = "text";
+          this.innerHTML = '<i class="fas fa-eye-slash"></i>';
+        } else {
+          passwordField.type = "password";
+          this.innerHTML = '<i class="fas fa-eye"></i>';
+        }
+      });
+    });
+  }
 
   // Update threshold value display
   thresholdSlider.addEventListener("input", function () {
     thresholdValue.textContent = this.value;
   });
+
+  // Initialize threshold value display to match slider
+  thresholdValue.textContent = thresholdSlider.value;
 
   // Update difference threshold value display
   if (differenceThresholdSlider) {
@@ -71,6 +289,24 @@ document.addEventListener("DOMContentLoaded", function () {
       differenceThresholdValue.textContent = this.value;
       differenceThreshold = parseFloat(this.value);
     });
+
+    // Initialize difference threshold value display
+    if (differenceThresholdValue) {
+      differenceThresholdValue.textContent = differenceThresholdSlider.value;
+      differenceThreshold = parseFloat(differenceThresholdSlider.value);
+    }
+  }
+
+  // Update transition threshold value display
+  if (transitionThresholdSlider) {
+    transitionThresholdSlider.addEventListener("input", function () {
+      transitionThresholdValue.textContent = this.value;
+    });
+
+    // Initialize transition threshold value display
+    if (transitionThresholdValue) {
+      transitionThresholdValue.textContent = transitionThresholdSlider.value;
+    }
   }
 
   // Update temperature value display
@@ -78,11 +314,14 @@ document.addEventListener("DOMContentLoaded", function () {
     temperatureValue.textContent = this.value;
   });
 
+  // Initialize temperature value display
+  temperatureValue.textContent = scriptTemperatureSlider.value;
+
   // Thêm sự kiện cho nút áp dụng ngưỡng
   if (applyThresholdBtn) {
     applyThresholdBtn.addEventListener("click", function () {
       if (!currentSessionId) {
-        alert("Vui lòng xử lý video trước khi áp dụng ngưỡng mới");
+        showToast("Lỗi: Vui lòng xử lý video trước khi áp dụng ngưỡng mới");
         return;
       }
 
@@ -114,18 +353,221 @@ document.addEventListener("DOMContentLoaded", function () {
       this.classList.add("active");
       selectedMethod = this.dataset.method;
 
-      // Show/hide method-specific settings
+      // Hide all method-specific settings first
+      method2Settings.forEach((setting) => {
+        setting.style.display = "none";
+      });
+      method3Settings.forEach((setting) => {
+        setting.style.display = "none";
+      });
+
+      // Hide Azure settings
+      const azureSettings = document.querySelectorAll(".azure-setting");
+      azureSettings.forEach((setting) => {
+        setting.style.display = "none";
+      });
+
+      // Get the basic parameters section by finding the h4 with "Tham số cơ bản" text
+      const basicParamsHeading = Array.from(
+        document.querySelectorAll("h4")
+      ).find((h4) => h4.textContent.trim() === "Tham số cơ bản");
+      const basicParamsSection = basicParamsHeading
+        ? basicParamsHeading.closest(".setting-group")
+        : null;
+
+      // Show appropriate settings based on selected method
       if (selectedMethod === "method2") {
         method2Settings.forEach((setting) => {
-          setting.style.display = "flex";
+          setting.style.display = "block";
         });
+        // Show basic params for method2
+        if (basicParamsSection) {
+          basicParamsSection.style.display = "block";
+        }
+      } else if (selectedMethod === "method3") {
+        method3Settings.forEach((setting) => {
+          setting.style.display = "block";
+        });
+        // Show basic params for method3
+        if (basicParamsSection) {
+          basicParamsSection.style.display = "block";
+        }
+      } else if (selectedMethod === "azure") {
+        azureSettings.forEach((setting) => {
+          setting.style.display = "block";
+        });
+        // Hide basic params for azure
+        if (basicParamsSection) {
+          basicParamsSection.style.display = "none";
+        }
+
+        // Load saved Azure credentials if available
+        loadAzureCredentials();
       } else {
-        method2Settings.forEach((setting) => {
-          setting.style.display = "none";
-        });
+        // For method1 or any other method, show basic params
+        if (basicParamsSection) {
+          basicParamsSection.style.display = "block";
+        }
       }
     });
   });
+
+  // Add this function to handle the "Generate Prompt" button click
+  // Add this function to handle the "Generate Prompt" button click
+  function generatePrompt(framePath) {
+    // Create and show loading modal
+    const modalOverlay = document.createElement("div");
+    modalOverlay.className = "modal-overlay";
+
+    const modal = document.createElement("div");
+    modal.className = "modal";
+    modal.innerHTML = `
+    <div class="modal-header">
+      <h3><i class="fas fa-magic"></i> Generating Prompt with Gemini AI</h3>
+      <button class="close-btn"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="image-preview">
+        <img src="${normalizeImagePath(framePath)}" alt="Selected image">
+      </div>
+      <div class="prompt-loading">
+        <p><i class="fas fa-spinner fa-spin"></i> Đang tạo prompt từ hình ảnh với Gemini AI...</p>
+        <div class="loading-spinner">
+          <img src="/static/img/loading.gif" alt="Loading" width="50">
+        </div>
+      </div>
+    </div>
+  `;
+
+    modalOverlay.appendChild(modal);
+    document.body.appendChild(modalOverlay);
+
+    // Close button event
+    modal.querySelector(".close-btn").addEventListener("click", function () {
+      document.body.removeChild(modalOverlay);
+    });
+
+    // Call API to generate prompt with Gemini
+    fetch("/generate-gemini-prompt", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        keyframe_path: framePath,
+      }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          return response.json().then((data) => {
+            throw new Error(
+              data.error || "Error generating prompt with Gemini"
+            );
+          });
+        }
+        return response.json();
+      })
+      .then((data) => {
+        // Update modal with generated prompt
+        const promptLoadingDiv = modal.querySelector(".prompt-loading");
+
+        if (data.success) {
+          promptLoadingDiv.innerHTML = `
+          <div class="generated-prompt">
+            <h4>Generated Prompt with Gemini AI:</h4>
+            <div class="prompt-content">${formatPromptText(data.prompt)}</div>
+            <div class="prompt-actions">
+              <button class="copy-prompt-btn">
+                <i class="fas fa-copy"></i> Copy to Clipboard
+              </button>
+              <button class="create-leonardo-image-btn">
+                <i class="fas fa-image"></i> Tạo ảnh mới
+              </button>
+            </div>
+          </div>
+        `;
+
+          // Add copy button functionality
+          modal
+            .querySelector(".copy-prompt-btn")
+            .addEventListener("click", function () {
+              const promptText = data.prompt;
+              navigator.clipboard
+                .writeText(promptText)
+                .then(() => {
+                  showToast("Prompt copied to clipboard!");
+                })
+                .catch((err) => {
+                  console.error("Could not copy text: ", err);
+                  showToast("Failed to copy prompt");
+                });
+            });
+
+          // Add create image button functionality
+          modal
+            .querySelector(".create-leonardo-image-btn")
+            .addEventListener("click", function () {
+              const promptText = data.prompt;
+              createLeonardoImage(promptText);
+            });
+        } else {
+          promptLoadingDiv.innerHTML = `
+          <div class="error-message">
+            <i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong> ${
+              data.error || "Unknown error occurred"
+            }
+          </div>
+        `;
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+
+        const promptLoadingDiv = modal.querySelector(".prompt-loading");
+        promptLoadingDiv.innerHTML = `
+        <div class="error-message">
+          <i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong> ${error.message}
+        </div>
+      `;
+      });
+  }
+
+  // Helper function to format the prompt text with proper line breaks and styling
+  // Helper function to format the prompt text with proper line breaks and styling
+  function formatPromptText(text) {
+    // Replace line breaks with HTML line breaks
+    let formatted = text.replace(/\n/g, "<br>");
+
+    // Highlight keywords that might be parameters or special terms
+    formatted = formatted.replace(
+      /\b([A-Z]{2,}|--[a-z-]+)\b/g,
+      '<span class="prompt-keyword">$1</span>'
+    );
+
+    // Highlight values in quotes
+    formatted = formatted.replace(
+      /"([^"]*)"/g,
+      '"<span class="prompt-value">$1</span>"'
+    );
+
+    return formatted;
+  }
+
+  // Function to load saved Azure credentials
+  function loadAzureCredentials() {
+    fetch("/azure-credentials")
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.has_credentials) {
+          document.getElementById("azure-api-key").value = data.api_key;
+          document.getElementById("azure-account-id").value = data.account_id;
+          document.getElementById("azure-location").value = data.location;
+        }
+      })
+      .catch((error) =>
+        console.error("Error loading Azure credentials:", error)
+      );
+  }
 
   // Handle file selection via browse button
   uploadArea.addEventListener("click", function () {
@@ -158,6 +600,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  // Format file size
+  function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+    else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + " MB";
+    else return (bytes / 1073741824).toFixed(1) + " GB";
+  }
+
   // Process file selection
   function handleFileSelection(file) {
     // Check if file is a video
@@ -168,8 +618,11 @@ document.addEventListener("DOMContentLoaded", function () {
       "video/x-matroska",
       "video/webm",
     ];
+
     if (!validTypes.includes(file.type)) {
-      alert("Vui lòng chọn file video hợp lệ (mp4, avi, mov, mkv, webm)");
+      showToast(
+        "Lỗi: Vui lòng chọn file video hợp lệ (mp4, avi, mov, mkv, webm)"
+      );
       return;
     }
 
@@ -178,15 +631,15 @@ document.addEventListener("DOMContentLoaded", function () {
     // Update UI
     const fileName =
       file.name.length > 30 ? file.name.substring(0, 30) + "..." : file.name;
+    const fileSize = formatFileSize(file.size);
+
     uploadArea.innerHTML = `
-          <div class="selected-file">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="23 7 16 12 23 17 23 7"></polygon>
-                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-              </svg>
-              <p>${fileName}</p>
-          </div>
-      `;
+      <div class="selected-file">
+        <i class="fas fa-file-video"></i>
+        <p>${fileName}</p>
+        <span class="file-size">${fileSize}</span>
+      </div>
+    `;
   }
 
   // Hàm để áp dụng ngưỡng độ khác biệt
@@ -197,7 +650,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Lấy giá trị ngưỡng từ thanh trượt
     const newThreshold = differenceThresholdSlider
       ? parseFloat(differenceThresholdSlider.value)
-      : 0.3;
+      : 0.32;
 
     // Gửi request đến server để phân tích với ngưỡng mới
     fetch("/analyze-frame-differences", {
@@ -373,12 +826,14 @@ document.addEventListener("DOMContentLoaded", function () {
           // Hiển thị thông báo
           showToast(`Đã xóa ${data.deleted_frames.length} khung hình tương tự`);
         } else {
-          alert("Lỗi: " + (data.error || "Không thể xóa khung hình tương tự"));
+          showToast(
+            "Lỗi: " + (data.error || "Không thể xóa khung hình tương tự")
+          );
         }
       })
       .catch((error) => {
         console.error("Error:", error);
-        alert("Lỗi khi xóa khung hình tương tự: " + error.message);
+        showToast("Lỗi khi xóa khung hình tương tự: " + error.message);
       });
   }
 
@@ -390,6 +845,7 @@ document.addEventListener("DOMContentLoaded", function () {
       errorMsg.remove();
     }
 
+    // Validate inputs based on upload method
     if (activeUploadMethod === "file-upload") {
       if (!selectedFile) {
         showError("Vui lòng chọn file video để trích xuất");
@@ -405,6 +861,21 @@ document.addEventListener("DOMContentLoaded", function () {
       const tiktokUrl = tiktokUrlInput.value.trim();
       if (!tiktokUrl) {
         showError("Vui lòng nhập URL video TikTok");
+        return;
+      }
+    }
+
+    // Additional validation for Azure method
+    // Additional validation for Azure method
+    if (selectedMethod === "azure") {
+      const apiKey = document.getElementById("azure-api-key").value;
+      const accountId = document.getElementById("azure-account-id").value;
+      const location = document.getElementById("azure-location").value;
+
+      if (!apiKey || !accountId || !location) {
+        showError(
+          "Vui lòng nhập đầy đủ thông tin API Key, Account ID và Location cho Azure"
+        );
         return;
       }
     }
@@ -425,26 +896,69 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     formData.append("method", selectedMethod);
-    formData.append("threshold", thresholdSlider.value);
-    formData.append("max_frames", maxFramesInput.value);
-    formData.append(
-      "extract_audio",
-      extractAudioCheckbox.checked ? "true" : "false"
-    );
-    formData.append(
-      "detect_duplicates",
-      detectDuplicatesCheckbox.checked ? "true" : "false"
-    );
 
-    // Thêm ngưỡng độ khác biệt
-    if (differenceThresholdSlider) {
-      formData.append("difference_threshold", differenceThresholdSlider.value);
+    // Add method-specific parameters
+    if (selectedMethod === "azure") {
+      // Add Azure-specific parameters
+      formData.append(
+        "api_key",
+        document.getElementById("azure-api-key").value
+      );
+      formData.append(
+        "account_id",
+        document.getElementById("azure-account-id").value
+      );
+      formData.append(
+        "location",
+        document.getElementById("azure-location").value
+      );
+      formData.append(
+        "language",
+        document.getElementById("azure-language").value
+      );
+      formData.append(
+        "force_upload",
+        document.getElementById("azure-force-upload").checked
+      );
+      formData.append(
+        "use_existing_analysis",
+        document.getElementById("azure-use-existing").checked
+      );
+      formData.append(
+        "extract_audio",
+        extractAudioCheckbox.checked ? "true" : "false"
+      );
+      formData.append("save_images", "true");
     } else {
-      formData.append("difference_threshold", differenceThreshold);
-    }
+      // Add parameters for other methods
+      formData.append("threshold", thresholdSlider.value);
+      formData.append("max_frames", maxFramesInput.value);
+      formData.append(
+        "extract_audio",
+        extractAudioCheckbox.checked ? "true" : "false"
+      );
+      formData.append(
+        "detect_duplicates",
+        detectDuplicatesCheckbox.checked ? "true" : "false"
+      );
 
-    if (selectedMethod === "method2") {
-      formData.append("min_scene_length", minSceneLengthInput.value);
+      if (differenceThresholdSlider) {
+        formData.append(
+          "difference_threshold",
+          differenceThresholdSlider.value
+        );
+      } else {
+        formData.append("difference_threshold", differenceThreshold);
+      }
+
+      if (selectedMethod === "method2") {
+        formData.append("min_scene_length", minSceneLengthInput.value);
+      } else if (selectedMethod === "method3") {
+        formData.append(
+          "transition_threshold",
+          transitionThresholdSlider.value
+        );
+      }
     }
 
     // Simulate progress
@@ -454,14 +968,59 @@ document.addEventListener("DOMContentLoaded", function () {
         progressValue +=
           Math.random() * (activeUploadMethod !== "file-upload" ? 1 : 4);
         progress.style.width = `${progressValue}%`;
-        progressText.textContent = `Đang ${
-          activeUploadMethod !== "file-upload" ? "tải video và " : ""
-        }xử lý... ${Math.round(progressValue)}%`;
+
+        if (selectedMethod === "azure") {
+          // Custom progress messages for Azure
+          if (progressValue < 20) {
+            progressText.textContent = `Đang ${
+              activeUploadMethod !== "file-upload" ? "tải video và " : ""
+            }tải lên Azure... ${Math.round(progressValue)}%`;
+          } else if (progressValue < 40) {
+            progressText.textContent = `Azure đang phân tích video... ${Math.round(
+              progressValue
+            )}%`;
+          } else if (progressValue < 60) {
+            progressText.textContent = `Đang phát hiện cảnh... ${Math.round(
+              progressValue
+            )}%`;
+          } else if (progressValue < 80) {
+            progressText.textContent = `Đang trích xuất văn bản... ${Math.round(
+              progressValue
+            )}%`;
+          } else {
+            progressText.textContent = `Đang hoàn thiện kết quả... ${Math.round(
+              progressValue
+            )}%`;
+          }
+        } else {
+          // Original progress messages for other methods
+          progressText.textContent = `Đang ${
+            activeUploadMethod !== "file-upload" ? "tải video và " : ""
+          }xử lý... ${Math.round(progressValue)}%`;
+        }
       }
     }, 500);
 
+    // Determine endpoint based on method
+    let endpoint;
+    if (selectedMethod === "azure") {
+      endpoint = "/process-video-azure";
+    } else if (selectedMethod === "method3") {
+      endpoint = "/extract-keyframes-advanced";
+    } else if (selectedMethod === "method1") {
+      endpoint = "/upload-method1";
+    } else if (selectedMethod === "method2") {
+      endpoint = "/upload-method2";
+    } else {
+      // Fallback to the original upload endpoint for compatibility
+      endpoint = "/upload";
+    }
+
+    debugLog("Sending request to endpoint:", endpoint);
+    debugLog("Method selected:", selectedMethod);
+
     // Send to server
-    fetch("/upload", {
+    fetch(endpoint, {
       method: "POST",
       body: formData,
     })
@@ -476,17 +1035,42 @@ document.addEventListener("DOMContentLoaded", function () {
         return response.json();
       })
       .then((data) => {
+        // Kiểm tra dữ liệu API trả về
+        debugLog("API Response:", data);
+        debugLog("API endpoint used:", endpoint);
+
+        if (data.keyframes) {
+          debugLog("Keyframes count:", data.keyframes.length);
+          if (data.keyframes.length > 0) {
+            debugLog("First keyframe sample:", data.keyframes[0]);
+            debugLog(
+              "Last keyframe sample:",
+              data.keyframes[data.keyframes.length - 1]
+            );
+          }
+        } else {
+          console.warn("No keyframes in response!");
+        }
+
         // Complete progress
         progress.style.width = "100%";
         progressText.textContent = "Hoàn thành!";
 
-        // Store session ID and keyframes data
-        currentSessionId = data.session_id;
-        keyframesData = data.keyframes || [];
+        // Store session ID and keyframes data if available
+        if (data.session_id) {
+          currentSessionId = data.session_id;
+        }
+        if (data.keyframes) {
+          keyframesData = data.keyframes;
+        }
 
         // Show results after a short delay
         setTimeout(() => {
-          displayResults(data);
+          if (selectedMethod === "azure") {
+            displayAzureResults(data);
+          } else {
+            displayResults(data);
+          }
         }, 500);
       })
       .catch((error) => {
@@ -514,7 +1098,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Create error message element
     const errorDiv = document.createElement("div");
     errorDiv.className = "error-message";
-    errorDiv.textContent = message;
+    errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
 
     // Add to DOM
     if (activeUploadMethod === "file-upload") {
@@ -534,9 +1118,36 @@ document.addEventListener("DOMContentLoaded", function () {
     generatedImagesSection.style.display = "none";
     transcriptSection.style.display = "none";
 
+    // Show the auto-process button after extraction
+    const autoProcessBtn = document.getElementById(
+      "auto-process-keyframes-btn"
+    );
+    if (autoProcessBtn) {
+      autoProcessBtn.parentElement.style.display = "block";
+
+      // Gỡ bỏ tất cả các event listener hiện tại
+      const newBtn = autoProcessBtn.cloneNode(true);
+      autoProcessBtn.parentNode.replaceChild(newBtn, autoProcessBtn);
+
+      // Thêm event listener mới
+      newBtn.addEventListener("click", function () {
+        console.log("Auto process button clicked!");
+        showToast("Starting auto processing...");
+        autoProcessVideo();
+      });
+    }
+
     if (similarityNotification) {
       similarityNotification.style.display = "none";
     }
+
+    debugLog("Displaying results with data:", data);
+    debugLog(
+      "Sample path from API:",
+      data.keyframes && data.keyframes.length > 0
+        ? data.keyframes[0].path
+        : "No keyframes"
+    );
 
     // Store keyframes data globally
     keyframesData = data.keyframes || [];
@@ -550,7 +1161,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const isTikTok = data.video_source === "TikTok";
 
     let videoInfoHTML = `
-          <h4>Thông tin video</h4>
+          <h4><i class="fas fa-info-circle"></i> Thông tin video</h4>
           <p><strong>Tên file:</strong> ${data.filename}</p>
           <p><strong>Thời lượng:</strong> ${minutes}:${
       seconds < 10 ? "0" + seconds : seconds
@@ -558,85 +1169,79 @@ document.addEventListener("DOMContentLoaded", function () {
           <p><strong>Kích thước:</strong> ${data.width} x ${data.height}</p>
           <p><strong>Tổng số khung hình:</strong> ${data.total_frames}</p>
           <p><strong>FPS:</strong> ${data.fps.toFixed(2)}</p>
-      `;
+        `;
 
     if (isYouTube) {
       videoInfoHTML += `
-              <div class="youtube-info">
-                  <div class="youtube-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path>
-                          <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
-                      </svg>
-                  </div>
-                  <div>
-                      <p><strong>Nguồn:</strong> YouTube</p>
-                      ${
-                        data.video_title
-                          ? `<p><strong>Tiêu đề:</strong> ${data.video_title}</p>`
-                          : ""
-                      }
-                  </div>
+            <div class="youtube-info">
+              <div class="youtube-icon">
+                <i class="fab fa-youtube"></i>
               </div>
+              <div>
+                <p><strong>Nguồn:</strong> YouTube</p>
+                ${
+                  data.video_title
+                    ? `<p><strong>Tiêu đề:</strong> ${data.video_title}</p>`
+                    : ""
+                }
+              </div>
+            </div>
           `;
     } else if (isTikTok) {
       videoInfoHTML += `
-              <div class="tiktok-info">
-                  <div class="tiktok-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M21 8v8a5 5 0 01-5 5H8a5 5 0 01-5-5V8a5 5 0 015-5h8a5 5 0 015 5z"></path>
-                          <path d="M10 12a3 3 0 103 3V6c.333 1 1.6 3 4 3"></path>
-                      </svg>
-                  </div>
-                  <div>
-                      <p><strong>Nguồn:</strong> TikTok</p>
-                      ${
-                        data.video_title
-                          ? `<p><strong>Tiêu đề:</strong> ${data.video_title}</p>`
-                          : ""
-                      }
-                  </div>
+            <div class="tiktok-info">
+              <div class="tiktok-icon">
+                <i class="fab fa-tiktok"></i>
               </div>
+              <div>
+                <p><strong>Nguồn:</strong> TikTok</p>
+                ${
+                  data.video_title
+                    ? `<p><strong>Tiêu đề:</strong> ${data.video_title}</p>`
+                    : ""
+                }
+              </div>
+            </div>
           `;
     }
 
     videoInfo.innerHTML = videoInfoHTML;
 
-    // Display method info
+    // Update method info with icons
     if (data.method === "frame_difference") {
       methodInfo.innerHTML = `
-              <h4>Phương pháp trích xuất</h4>
-              <p><strong>Phương pháp:</strong> Phân tích sự thay đổi giữa các khung hình</p>
-              <p><strong>Ngưỡng phát hiện:</strong> ${thresholdSlider.value}</p>
-              <p><strong>Số khung hình đã trích xuất:</strong> ${data.keyframes.length}</p>
+            <h4><i class="fas fa-chart-line"></i> Phương pháp trích xuất</h4>
+            <p><strong>Phương pháp:</strong> Phân tích sự thay đổi giữa các khung hình</p>
+            <p><strong>Ngưỡng phát hiện:</strong> ${thresholdSlider.value}</p>
+            <p><strong>Số khung hình đã trích xuất:</strong> ${data.keyframes.length}</p>
           `;
 
       // Hiển thị thông tin về ngưỡng độ khác biệt
       if (data.difference_threshold) {
         methodInfo.innerHTML += `
-          <p><strong>Ngưỡng độ khác biệt:</strong> ${data.difference_threshold}</p>
-        `;
+              <p><strong>Ngưỡng độ khác biệt:</strong> ${data.difference_threshold}</p>
+            `;
       }
 
       scenesInfo.style.display = "none";
-    } else {
+    } else if (data.method === "scene_detection") {
       methodInfo.innerHTML = `
-              <h4>Phương pháp trích xuất</h4>
-              <p><strong>Phương pháp:</strong> Phát hiện chuyển cảnh</p>
-              <p><strong>Ngưỡng phát hiện:</strong> ${thresholdSlider.value}</p>
-              <p><strong>Độ dài tối thiểu cảnh:</strong> ${
-                minSceneLengthInput.value
-              } frames</p>
-              <p><strong>Số cảnh đã phát hiện:</strong> ${
-                data.scenes ? data.scenes.length : 0
-              }</p>
+            <h4><i class="fas fa-film"></i> Phương pháp trích xuất</h4>
+            <p><strong>Phương pháp:</strong> Phát hiện chuyển cảnh</p>
+            <p><strong>Ngưỡng phát hiện:</strong> ${thresholdSlider.value}</p>
+            <p><strong>Độ dài tối thiểu cảnh:</strong> ${
+              minSceneLengthInput.value
+            } frames</p>
+            <p><strong>Số cảnh đã phát hiện:</strong> ${
+              data.scenes ? data.scenes.length : 0
+            }</p>
           `;
 
       // Hiển thị thông tin về ngưỡng độ khác biệt
       if (data.difference_threshold) {
         methodInfo.innerHTML += `
-          <p><strong>Ngưỡng độ khác biệt:</strong> ${data.difference_threshold}</p>
-        `;
+              <p><strong>Ngưỡng độ khác biệt:</strong> ${data.difference_threshold}</p>
+            `;
       }
 
       // Display scenes info
@@ -646,22 +1251,45 @@ document.addEventListener("DOMContentLoaded", function () {
           const startTime = formatTime(scene.start / data.fps);
           const endTime = formatTime(scene.end / data.fps);
           sceneListHTML += `
-                      <div class="scene-item">
-                          <strong>Cảnh ${index + 1}:</strong> 
-                          Từ ${startTime} đến ${endTime} 
-                          (${scene.length} frames)
-                      </div>
-                  `;
+                <div class="scene-item">
+                  <i class="fas fa-film"></i> <strong>Cảnh ${
+                    index + 1
+                  }:</strong> 
+                  Từ ${startTime} đến ${endTime} 
+                  (${scene.length} frames)
+                </div>
+              `;
         });
 
         scenesInfo.innerHTML = `
-                  <div class="scenes-summary">Đã phát hiện ${data.scenes.length} cảnh trong video</div>
-                  <div class="scene-list">${sceneListHTML}</div>
-              `;
+              <div class="scenes-summary"><i class="fas fa-list"></i> Danh sách cảnh đã phát hiện</div>
+              <div class="scene-list">${sceneListHTML}</div>
+            `;
         scenesInfo.style.display = "block";
       } else {
         scenesInfo.style.display = "none";
       }
+    } else if (data.method === "transition_aware") {
+      methodInfo.innerHTML = `
+            <h4><i class="fas fa-magic"></i> Phương pháp trích xuất</h4>
+            <p><strong>Phương pháp:</strong> Phát hiện và lọc Transition</p>
+            <p><strong>Ngưỡng phát hiện:</strong> ${thresholdSlider.value}</p>
+            <p><strong>Ngưỡng transition:</strong> ${
+              data.transition_threshold || "0.4"
+            }</p>
+            <p><strong>Số khung hình đã trích xuất:</strong> ${
+              data.keyframes.length
+            }</p>
+          `;
+
+      // Hiển thị thông tin về ngưỡng độ khác biệt
+      if (data.difference_threshold) {
+        methodInfo.innerHTML += `
+              <p><strong>Ngưỡng độ khác biệt:</strong> ${data.difference_threshold}</p>
+            `;
+      }
+
+      scenesInfo.style.display = "none";
     }
 
     // Display transcript if available
@@ -670,13 +1298,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Format transcript with timestamps if available
       const transcriptHTML = `
-        <div class="transcript-text">
-          <p>${data.transcript.text}</p>
-        </div>
-        <div class="transcript-actions">
-          <button id="download-transcript-btn">Tải xuống phiên âm</button>
-        </div>
-      `;
+            <div class="transcript-text">
+              <p>${data.transcript.text}</p>
+            </div>
+            <div class="transcript-actions">
+              <button id="download-transcript-btn">
+                <i class="fas fa-download"></i> Tải xuống phiên âm
+              </button>
+            </div>
+          `;
 
       transcriptContent.innerHTML = transcriptHTML;
 
@@ -689,10 +1319,10 @@ document.addEventListener("DOMContentLoaded", function () {
     } else if (data.audio_error) {
       transcriptSection.style.display = "block";
       transcriptContent.innerHTML = `
-        <div class="error-message">
-          <p><strong>Lỗi khi xử lý âm thanh:</strong> ${data.audio_error}</p>
-        </div>
-      `;
+            <div class="error-message">
+              <i class="fas fa-exclamation-triangle"></i> <strong>Lỗi khi xử lý âm thanh:</strong> ${data.audio_error}
+            </div>
+          `;
     } else {
       transcriptSection.style.display = "none";
     }
@@ -701,6 +1331,8 @@ document.addEventListener("DOMContentLoaded", function () {
     keyframesGallery.innerHTML = "";
 
     if (data.keyframes && data.keyframes.length > 0) {
+      debugLog(`Rendering ${data.keyframes.length} keyframes`);
+
       // Kiểm tra nếu có ảnh tương tự (độ khác biệt thấp)
       const similarFrames = data.keyframes.filter(
         (frame) => frame.is_similar === true
@@ -717,112 +1349,703 @@ document.addEventListener("DOMContentLoaded", function () {
         similarityNotification.style.display = "none";
       }
 
-      data.keyframes.forEach((frame) => {
-        const timeString = formatTime(frame.timestamp);
+      // Kiểm tra nếu có ảnh trùng lặp
+      const duplicateFrames = data.keyframes.filter(
+        (frame) => frame.is_duplicate === true
+      );
+      if (duplicateFrames.length > 0 && duplicateNotification) {
+        duplicateNotification.style.display = "block";
+        duplicateCount.textContent = duplicateFrames.length;
 
+        // Thêm sự kiện cho nút xóa ảnh trùng lặp
+        removeDuplicatesBtn.onclick = function () {
+          removeDuplicateFrames(duplicateFrames);
+        };
+      } else if (duplicateNotification) {
+        duplicateNotification.style.display = "none";
+      }
+
+      data.keyframes.forEach((frame, index) => {
+        // Tạo một ID duy nhất cho frame nếu không có
+        const frameId = frame.id || `frame-${index}`;
+
+        // Xử lý thời gian hiển thị
+        let timeString = "N/A";
+        if (frame.timestamp !== undefined) {
+          timeString = formatTime(frame.timestamp);
+        } else if (frame.time !== undefined) {
+          timeString = formatTime(frame.time);
+        }
+
+        // Tạo element cho keyframe
         const keyframeElement = document.createElement("div");
         keyframeElement.className = "keyframe";
-        if (frame.is_similar) {
-          keyframeElement.classList.add("similar-frame");
-        }
-        keyframeElement.dataset.frameId = frame.id;
+        keyframeElement.dataset.frameId = frameId;
+        keyframeElement.dataset.frameIndex = index;
 
+        // Thêm các class đặc biệt nếu cần
+        if (frame.is_similar) keyframeElement.classList.add("similar-frame");
+        if (frame.is_duplicate)
+          keyframeElement.classList.add("duplicate-frame");
+
+        // Xử lý các label cần hiển thị
         let labelHTML = "";
+
         if (data.method === "scene_detection" && frame.scene_id !== undefined) {
-          labelHTML = `<div class="scene-label">Cảnh ${frame.scene_id}</div>`;
-        } else if (
-          data.method === "frame_difference" &&
+          labelHTML += `<div class="scene-label">Cảnh ${frame.scene_id}</div>`;
+        }
+
+        if (
+          (data.method === "frame_difference" ||
+            data.method === "transition_aware") &&
           frame.diff_value !== undefined
         ) {
-          labelHTML = `<div class="diff-label">${Math.round(
+          labelHTML += `<div class="diff-label">${Math.round(
             frame.diff_value
           )}</div>`;
         }
 
-        // Thêm nhãn độ tương đồng nếu cần
         if (frame.is_similar && frame.similarity !== undefined) {
           labelHTML += `<div class="similarity-label">Tương tự (${Math.round(
             frame.similarity * 100
           )}%)</div>`;
         }
 
-        // Đảm bảo đường dẫn ảnh đúng
-        const imagePath = `/static/${frame.path}`;
+        if (frame.is_duplicate && frame.similarity !== undefined) {
+          labelHTML += `<div class="duplicate-label">Trùng lặp (${Math.round(
+            frame.similarity * 100
+          )}%)</div>`;
+        }
 
+        if (frame.is_transition) {
+          labelHTML += `<div class="transition-label">Transition</div>`;
+        }
+
+        // Xử lý đường dẫn ảnh với nhiều trường hợp khác nhau
+        const originalPath = frame.path;
+
+        // Chuẩn hóa đường dẫn từ kiểu Windows sang web
+        let imagePath = originalPath.replace(/\\/g, "/");
+
+        // Nếu đường dẫn không bắt đầu bằng /static/, thêm vào
+        if (!imagePath.startsWith("/static/")) {
+          imagePath = `/static/${imagePath}`;
+        }
+
+        debugLog(
+          `Frame ${index}: Original=${originalPath}, Normalized=${imagePath}`
+        );
+
+        const frameNumber = frame.frame_number || index;
+
+        // In the displayResults function, modify the keyframeElement.innerHTML to include the new button
         keyframeElement.innerHTML = `
-        ${labelHTML}
-                  <img src="${imagePath}" alt="Khung hình ${
-          frame.frame_number
-        }" loading="lazy">
-                  <div class="keyframe-info">
-                      <p><strong>Thời điểm:</strong> ${timeString}</p>
-                      <div class="keyframe-meta">
-                          <span>Frame #${frame.frame_number}</span>
-                          ${
-                            data.method === "scene_detection"
-                              ? `<span>Cảnh #${frame.scene_id}</span>`
-                              : `<span>Độ khác biệt: ${
-                                  frame.diff_value
-                                    ? frame.diff_value.toFixed(2)
-                                    : "N/A"
-                                }</span>`
-                          }
-                          ${
-                            frame.is_similar && frame.similarity !== undefined
-                              ? `<span>Độ tương đồng: ${(
-                                  frame.similarity * 100
-                                ).toFixed(0)}%</span>`
-                              : ""
-                          }
-                      </div>
-                      <div class="keyframe-actions">
-                        <button class="generate-image-btn" data-frame-path="${
-                          frame.path
-                        }">Tạo ảnh mới</button>
-                        <button class="delete-frame-btn" data-frame-path="${
-                          frame.path
-                        }" data-frame-id="${frame.id}">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            <line x1="10" y1="11" x2="10" y2="17"></line>
-                            <line x1="14" y1="11" x2="14" y2="17"></line>
-                          </svg>
-                        </button>
-                      </div>
-                  </div>
-              `;
+  ${labelHTML}
+  <div class="image-container">
+    <img 
+      src="${imagePath}" 
+      alt="Khung hình ${frameNumber}" 
+      loading="lazy" 
+      onerror="
+        if (!this.dataset.tried) {
+          this.dataset.tried = 'true';
+          console.error('Failed to load image:', this.src);
+          this.src = '/static/${originalPath.replace(/\\/g, "/")}';
+        } else {
+          this.src = '/static/img/error.png';
+        }
+      "
+    >
+  </div>
+  <div class="keyframe-info">
+    <p><strong>Thời điểm:</strong> ${timeString}</p>
+    <div class="keyframe-meta">
+      <span>Frame #${frameNumber}</span>
+      ${
+        frame.is_similar && frame.similarity !== undefined
+          ? `<span>Độ tương đồng: ${(frame.similarity * 100).toFixed(
+              0
+            )}%</span>`
+          : ""
+      }
+      ${
+        frame.is_duplicate && frame.similarity !== undefined
+          ? `<span>Độ trùng lặp: ${(frame.similarity * 100).toFixed(0)}%</span>`
+          : ""
+      }
+    </div>
+    <div class="keyframe-actions">
+      <button class="generate-image-btn" data-frame-path="${imagePath.replace(
+        "/static/",
+        ""
+      )}">
+        <i class="fas fa-palette"></i> Tạo ảnh mới
+      </button>
+      <button class="generate-prompt-btn" data-frame-path="${imagePath.replace(
+        "/static/",
+        ""
+      )}">
+        <i class="fas fa-magic"></i> Tạo prompt
+      </button>
+      <button class="delete-frame-btn" data-frame-path="${imagePath.replace(
+        "/static/",
+        ""
+      )}" data-frame-id="${frameId}">
+        <i class="fas fa-trash-alt"></i>
+      </button>
+    </div>
+  </div>
+`;
+
+        // And then add the event listener for the new button
+        const generatePromptBtn = keyframeElement.querySelector(
+          ".generate-prompt-btn"
+        );
+        generatePromptBtn.addEventListener("click", function () {
+          const framePath = this.dataset.framePath;
+          generatePrompt(framePath);
+        });
+
+        // Add click event to open full image
+        const imgElement = keyframeElement.querySelector("img");
+        imgElement.addEventListener("click", function () {
+          // Instead of opening in a new tab, show in a modal with download options
+          const imgSrc = this.src;
+
+          // Create a modal to show the full image with download options
+          const modal = document.createElement("div");
+          modal.className = "modal-overlay";
+          modal.innerHTML = `
+            <div class="modal">
+              <div class="modal-header">
+                <h3><i class="fas fa-image"></i> Xem ảnh đầy đủ</h3>
+                <button class="close-btn">&times;</button>
+              </div>
+              <div class="modal-body">
+                <div class="full-image-container">
+                  <img src="${imgSrc}" alt="Ảnh đầy đủ" class="full-image">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button class="download-image-modal-btn">
+                  <i class="fas fa-download"></i> Tải xuống
+                </button>
+                <button class="save-folder-modal-btn">
+                  <i class="fas fa-folder"></i> Lưu vào thư mục
+                </button>
+              </div>
+            </div>
+          `;
+
+          document.body.appendChild(modal);
+
+          // Add close button functionality
+          modal
+            .querySelector(".close-btn")
+            .addEventListener("click", function () {
+              document.body.removeChild(modal);
+            });
+
+          // Add download button functionality
+          modal
+            .querySelector(".download-image-modal-btn")
+            .addEventListener("click", function () {
+              downloadImage(imgSrc);
+            });
+
+          // Add save to folder button functionality
+          modal
+            .querySelector(".save-folder-modal-btn")
+            .addEventListener("click", function () {
+              downloadImagesAsZip(
+                [imgSrc],
+                `generated-image-${Date.now()}.zip`
+              );
+            });
+
+          // Add save to queue button functionality
+          modal
+            .querySelector(".add-to-queue-modal-btn")
+            .addEventListener("click", function () {
+              addToImageQueue({
+                url: imgSrc,
+                prompt: data.prompt,
+                timestamp: Date.now(),
+              });
+            });
+        });
+
+        // Add click event for generate image button
+        const generateBtn = keyframeElement.querySelector(
+          ".generate-image-btn"
+        );
+        generateBtn.addEventListener("click", function () {
+          const framePath = this.dataset.framePath;
+          directLeonardoImageGeneration(framePath);
+        });
+
+        // Add click event for delete button
+        const deleteBtn = keyframeElement.querySelector(".delete-frame-btn");
+        deleteBtn.addEventListener("click", function () {
+          const framePath = this.dataset.framePath;
+          const frameId = this.dataset.frameId;
+          deleteKeyframe(framePath, frameId);
+        });
+
+        keyframesGallery.appendChild(keyframeElement);
+      });
+    } else {
+      console.warn("No keyframes found in data:", data);
+      keyframesGallery.innerHTML =
+        '<p class="no-frames"><i class="fas fa-exclamation-circle"></i> Không có khung hình nào được trích xuất.</p>';
+    }
+
+    // Add check paths button event
+    if (checkPathsBtn) {
+      checkPathsBtn.addEventListener("click", checkAllImagePaths);
+    }
+  }
+
+  // Hàm kiểm tra tất cả đường dẫn ảnh
+  function checkAllImagePaths() {
+    if (!keyframesData || keyframesData.length === 0) {
+      showToast("Không có dữ liệu khung hình để kiểm tra");
+      return;
+    }
+
+    showToast("Đang kiểm tra đường dẫn ảnh...");
+
+    // Tạo một div để hiển thị kết quả
+    const resultsDiv = document.createElement("div");
+    resultsDiv.className = "path-check-results";
+    resultsDiv.innerHTML = `
+          <h3><i class="fas fa-search"></i> Kết quả kiểm tra đường dẫn ảnh</h3>
+          <p>Đang kiểm tra ${keyframesData.length} đường dẫn...</p>
+          <div class="path-results"></div>
+          <button class="close-btn"><i class="fas fa-times"></i> Đóng</button>
+        `;
+
+    document.body.appendChild(resultsDiv);
+
+    // Thêm sự kiện cho nút đóng
+    resultsDiv
+      .querySelector(".close-btn")
+      .addEventListener("click", function () {
+        document.body.removeChild(resultsDiv);
+      });
+
+    const pathResultsDiv = resultsDiv.querySelector(".path-results");
+
+    // Kiểm tra từng đường dẫn
+    const samplePaths = keyframesData.slice(0, 5); // Chỉ kiểm tra 5 đường dẫn đầu tiên
+
+    samplePaths.forEach((frame, index) => {
+      if (!frame.path) return;
+
+      const originalPath = frame.path;
+      const normalizedPath = normalizeImagePath(originalPath);
+
+      const pathItem = document.createElement("div");
+      pathItem.className = "path-item";
+      pathItem.innerHTML = `
+            <p><strong>Frame ${index}:</strong></p>
+            <p>Original: <code>${originalPath}</code></p>
+            <p>Normalized: <code>${normalizedPath}</code></p>
+            <div class="path-status">Đang kiểm tra...</div>
+          `;
+
+      pathResultsDiv.appendChild(pathItem);
+
+      // Tạo một ảnh để kiểm tra
+      const testImg = new Image();
+      testImg.onload = function () {
+        pathItem.querySelector(".path-status").innerHTML = `
+              <span class="success"><i class="fas fa-check-circle"></i> Đường dẫn hợp lệ</span>
+              <img src="${normalizedPath}" alt="Preview" class="path-preview">
+            `;
+      };
+
+      testImg.onerror = function () {
+        pathItem.querySelector(".path-status").innerHTML = `
+              <span class="error"><i class="fas fa-times-circle"></i> Đường dẫn không hợp lệ</span>
+            `;
+
+        // Thử các đường dẫn khác
+        const alternativePaths = [
+          `/static/${originalPath}`,
+          originalPath.replace(/\\/g, "/"),
+          `/uploads/keyframes/${currentSessionId}/frame_${index}.jpg`,
+        ];
+
+        const altPathsHtml = alternativePaths
+          .map(
+            (path) =>
+              `<p>Thử: <code>${path}</code> <img src="${path}" alt="" class="path-test-img" onload="this.parentNode.classList.add('valid-path')" onerror="this.parentNode.classList.add('invalid-path')"></p>`
+          )
+          .join("");
+
+        pathItem.innerHTML += `
+              <div class="alternative-paths">
+                <p><strong>Đang thử các đường dẫn thay thế:</strong></p>
+                ${altPathsHtml}
+              </div>
+            `;
+      };
+
+      testImg.src = normalizedPath;
+    });
+  }
+
+  // Display Azure results
+  function displayAzureResults(data) {
+    progressContainer.style.display = "none";
+    resultsSection.style.display = "block";
+    scriptSection.style.display = "none";
+    generatedImagesSection.style.display = "none";
+    transcriptSection.style.display = "none";
+
+    // Show the auto-process button after extraction
+    const autoProcessBtn = document.getElementById(
+      "auto-process-keyframes-btn"
+    );
+    if (autoProcessBtn) {
+      autoProcessBtn.parentElement.style.display = "block";
+
+      // Gỡ bỏ tất cả các event listener hiện tại
+      const newBtn = autoProcessBtn.cloneNode(true);
+      autoProcessBtn.parentNode.replaceChild(newBtn, autoProcessBtn);
+
+      // Thêm event listener mới
+      newBtn.addEventListener("click", function () {
+        console.log("Auto process button clicked (Azure)!");
+        showToast("Starting auto processing...");
+        autoProcessVideo();
+      });
+    }
+
+    // Reset current session ID since we're using a different approach for Azure
+    // But keep the session ID if it exists for transcript access
+    if (data.session_id) {
+      currentSessionId = data.session_id;
+    }
+
+    // Create keyframes data array from Azure scenes and shots
+    keyframesData = [];
+
+    // Add shots to keyframesData
+    if (data.shots && data.shots.length > 0) {
+      data.shots.forEach((shot, index) => {
+        // Use saved path if available, otherwise use base64 data
+        const imgPath = shot.path
+          ? shot.path
+          : `data:image/jpeg;base64,${shot.image_data}`;
+
+        keyframesData.push({
+          id: `azure-shot-${index}`,
+          path: imgPath,
+          shot_index: shot.shot_index,
+          scene_id: shot.scene_id,
+          timestamp: shot.start,
+          frame_number: index, // No offset needed since we don't have scenes
+          azure_data: true,
+          start: shot.start,
+          end: shot.end,
+          type: "shot",
+        });
+      });
+    }
+
+    // Display transcript if available (from regular audio extraction)
+    if (data.transcript && data.transcript.text) {
+      transcriptSection.style.display = "block";
+
+      // Format transcript with timestamps if available
+      const transcriptHTML = `
+            <div class="transcript-text">
+              <p>${data.transcript.text}</p>
+            </div>
+            <div class="transcript-actions">
+              <button id="download-transcript-btn">
+                <i class="fas fa-download"></i> Tải xuống phiên âm
+              </button>
+            </div>
+          `;
+
+      transcriptContent.innerHTML = transcriptHTML;
+
+      // Add event listener for download transcript button
+      document
+        .getElementById("download-transcript-btn")
+        .addEventListener("click", function () {
+          downloadTranscript(currentSessionId);
+        });
+    } else if (data.audio_error) {
+      transcriptSection.style.display = "block";
+      transcriptContent.innerHTML = `
+            <div class="error-message">
+              <i class="fas fa-exclamation-triangle"></i> <strong>Lỗi khi xử lý âm thanh:</strong> ${data.audio_error}
+            </div>
+          `;
+    } else {
+      transcriptSection.style.display = "none";
+    }
+
+    // Display video info
+    let videoInfoHTML = `
+          <h4><i class="fas fa-info-circle"></i> Thông tin video</h4>
+          <p><strong>Tên file:</strong> ${
+            data.video_name || data.filename || "Unknown"
+          }</p>
+        `;
+
+    if (data.saved_folder) {
+      videoInfoHTML += `<p><strong>Thư mục lưu trữ:</strong> ${data.saved_folder}</p>`;
+    }
+
+    if (data.duration) {
+      const minutes = Math.floor(data.duration / 60);
+      const seconds = Math.round(data.duration % 60);
+      videoInfoHTML += `<p><strong>Thời lượng:</strong> ${minutes}:${
+        seconds < 10 ? "0" + seconds : seconds
+      }</p>`;
+    }
+
+    videoInfo.innerHTML = videoInfoHTML;
+
+    // Display method info
+    // Display method info
+    methodInfo.innerHTML = `
+    <h4><i class="fab fa-microsoft"></i> Phương pháp trích xuất</h4>
+    <p><strong>Phương pháp:</strong> Azure Video Indexer AI</p>
+    <p><strong>Số shots đã phát hiện:</strong> ${
+      data.shots ? data.shots.length : 0
+    }</p>
+  `;
+
+    // Display scenes info if available
+    scenesInfo.style.display = "none";
+
+    // Display keyframes/scenes gallery
+    keyframesGallery.innerHTML = "";
+
+    // Only display shots
+    if (data.shots && data.shots.length > 0) {
+      const shotsHeader = document.createElement("h4");
+      shotsHeader.className = "gallery-section-header";
+      shotsHeader.innerHTML = '<i class="fas fa-film"></i> Shots';
+      keyframesGallery.appendChild(shotsHeader);
+
+      data.shots.forEach((shot, index) => {
+        const keyframeElement = document.createElement("div");
+        keyframeElement.className = "keyframe azure-shot";
+
+        // Create a unique ID for the shot
+        const shotId = `azure-shot-${index}`;
+        keyframeElement.dataset.frameId = shotId;
+        keyframeElement.dataset.shotId = shotId;
+
+        // Format time string
+        const startTime = shot.start;
+        const endTime = shot.end;
+
+        // Use saved path if available, otherwise use base64 data
+        const imgSrc = shot.path
+          ? normalizeImagePath(shot.path)
+          : `data:image/jpeg;base64,${shot.image_data}`;
+
+        // In the displayAzureResults function, modify the keyframeElement.innerHTML
+        keyframeElement.innerHTML = `
+<div class="scene-label">Shot ${shot.shot_index}</div>
+<div class="image-container">
+  <img src="${imgSrc}" alt="Shot ${shot.shot_index}" loading="lazy">
+</div>
+<div class="keyframe-info">
+  <p><strong>Thời điểm:</strong> ${startTime} - ${endTime}</p>
+  <div class="keyframe-meta">
+    <span>Shot #${shot.shot_index}</span>
+  </div>
+  <div class="keyframe-actions">
+    <button class="generate-image-btn" data-frame-path="${shot.path || ""}">
+      <i class="fas fa-palette"></i> Tạo ảnh mới
+    </button>
+    <button class="generate-prompt-btn" data-frame-path="${shot.path || ""}">
+      <i class="fas fa-magic"></i> Tạo prompt
+    </button>
+  </div>
+</div>
+`;
+
+        // Add event listener for generate prompt button if path exists
+        if (shot.path) {
+          keyframeElement
+            .querySelector(".generate-prompt-btn")
+            .addEventListener("click", function () {
+              const framePath = this.dataset.framePath;
+              generatePrompt(framePath);
+            });
+        } else {
+          // Hide the buttons if no path is available
+          const genButton = keyframeElement.querySelector(
+            ".generate-image-btn"
+          );
+          const promptButton = keyframeElement.querySelector(
+            ".generate-prompt-btn"
+          );
+          if (genButton) genButton.style.display = "none";
+          if (promptButton) promptButton.style.display = "none";
+        }
 
         // Add click event to open full image
         keyframeElement
           .querySelector("img")
           .addEventListener("click", function () {
-            window.open(imagePath, "_blank");
+            // Instead of opening in a new tab, show in a modal with download options
+            const imgSrc = this.src;
+
+            // Create a modal to show the full image with download options
+            const modal = document.createElement("div");
+            modal.className = "modal-overlay";
+            modal.innerHTML = `
+              <div class="modal">
+                <div class="modal-header">
+                  <h3><i class="fas fa-image"></i> Xem ảnh đầy đủ</h3>
+                  <button class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                  <div class="full-image-container">
+                    <img src="${imgSrc}" alt="Ảnh đầy đủ" class="full-image">
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button class="download-image-modal-btn">
+                    <i class="fas fa-download"></i> Tải xuống
+                  </button>
+                  <button class="save-folder-modal-btn">
+                    <i class="fas fa-folder"></i> Lưu vào thư mục
+                  </button>
+                </div>
+              </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Add close button functionality
+            modal
+              .querySelector(".close-btn")
+              .addEventListener("click", function () {
+                document.body.removeChild(modal);
+              });
+
+            // Add download button functionality
+            modal
+              .querySelector(".download-image-modal-btn")
+              .addEventListener("click", function () {
+                downloadImage(imgSrc);
+              });
+
+            // Add save to folder button functionality
+            modal
+              .querySelector(".save-folder-modal-btn")
+              .addEventListener("click", function () {
+                downloadImagesAsZip(
+                  [imgSrc],
+                  `generated-image-${Date.now()}.zip`
+                );
+              });
+
+            // Add save to queue button functionality
+            modal
+              .querySelector(".add-to-queue-modal-btn")
+              .addEventListener("click", function () {
+                addToImageQueue({
+                  url: imgSrc,
+                  prompt: data.prompt,
+                  timestamp: Date.now(),
+                });
+              });
           });
 
-        // Add click event for generate image button
+        // Add click event to open full image
         keyframeElement
           .querySelector(".generate-image-btn")
           .addEventListener("click", function () {
             const framePath = this.dataset.framePath;
-            showImageGenerationModal(framePath);
-          });
-
-        // Add click event for delete button
-        keyframeElement
-          .querySelector(".delete-frame-btn")
-          .addEventListener("click", function () {
-            const framePath = this.dataset.framePath;
-            const frameId = this.dataset.frameId;
-            deleteKeyframe(framePath, frameId);
+            directLeonardoImageGeneration(framePath);
           });
 
         keyframesGallery.appendChild(keyframeElement);
       });
     } else {
       keyframesGallery.innerHTML =
-        '<p class="no-frames">Không có khung hình nào được trích xuất.</p>';
+        '<p class="no-frames"><i class="fas fa-exclamation-circle"></i> Không có shots nào được trích xuất.</p>';
     }
+
+    // Add check paths button event
+    if (checkPathsBtn) {
+      checkPathsBtn.addEventListener("click", checkAllImagePaths);
+    }
+  }
+
+  // Function to remove duplicate frames
+  function removeDuplicateFrames(duplicateFrames) {
+    if (
+      !confirm(
+        "Bạn có chắc chắn muốn xóa tất cả các khung hình trùng lặp không?"
+      )
+    ) {
+      return;
+    }
+
+    // Hiển thị thông báo đang xử lý
+    showToast("Đang xóa khung hình trùng lặp...");
+
+    fetch("/remove-duplicates", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        session_id: currentSessionId,
+        duplicate_frames: duplicateFrames,
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          // Xóa tất cả khung hình trùng lặp khỏi giao diện
+          data.deleted_frames.forEach((frameId) => {
+            const frameElement = document.querySelector(
+              `.keyframe[data-frame-id="${frameId}"]`
+            );
+            if (frameElement) {
+              frameElement.remove();
+            }
+
+            // Cập nhật keyframesData
+            keyframesData = keyframesData.filter(
+              (frame) => frame.id !== frameId
+            );
+          });
+
+          // Ẩn thông báo trùng lặp
+          if (duplicateNotification) {
+            duplicateNotification.style.display = "none";
+          }
+
+          // Hiển thị thông báo
+          showToast(
+            `Đã xóa ${data.deleted_frames.length} khung hình trùng lặp`
+          );
+        } else {
+          showToast(
+            "Lỗi: " + (data.error || "Không thể xóa khung hình trùng lặp")
+          );
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        showToast("Lỗi khi xóa khung hình trùng lặp: " + error.message);
+      });
   }
 
   // Delete a keyframe
@@ -869,24 +2092,50 @@ document.addEventListener("DOMContentLoaded", function () {
               }
             }
 
+            // Cập nhật số lượng ảnh trùng lặp nếu cần
+            if (duplicateNotification) {
+              const remainingDuplicates = document.querySelectorAll(
+                ".keyframe.duplicate-frame"
+              ).length;
+              if (remainingDuplicates === 0) {
+                duplicateNotification.style.display = "none";
+              } else {
+                duplicateCount.textContent = remainingDuplicates;
+              }
+            }
+
             // Hiển thị thông báo
             showToast("Đã xóa khung hình thành công");
           }
         } else {
-          alert("Lỗi: " + (data.error || "Không thể xóa khung hình"));
+          showToast("Lỗi: " + (data.error || "Không thể xóa khung hình"));
         }
       })
       .catch((error) => {
         console.error("Error:", error);
-        alert("Lỗi khi xóa khung hình: " + error.message);
+        showToast("Lỗi khi xóa khung hình: " + error.message);
       });
   }
 
   // Show toast notification
   function showToast(message) {
+    // Remove any existing toast
+    const existingToast = document.querySelector(".toast");
+    if (existingToast) {
+      existingToast.remove();
+    }
+
     const toast = document.createElement("div");
     toast.className = "toast";
-    toast.textContent = message;
+
+    // Check if message is an error (starts with "Lỗi")
+    if (message.startsWith("Lỗi")) {
+      toast.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+      toast.style.backgroundColor = "rgba(239, 68, 68, 0.9)"; // Error color
+    } else {
+      toast.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+    }
+
     document.body.appendChild(toast);
 
     // Show the toast
@@ -898,40 +2147,11 @@ document.addEventListener("DOMContentLoaded", function () {
     setTimeout(() => {
       toast.classList.remove("show");
       setTimeout(() => {
-        document.body.removeChild(toast);
+        if (document.body.contains(toast)) {
+          document.body.removeChild(toast);
+        }
       }, 300);
     }, 3000);
-  }
-
-  // Download transcript
-  function downloadTranscript(sessionId) {
-    fetch(`/download-transcript/${sessionId}`)
-      .then((response) => {
-        if (!response.ok) {
-          return response.json().then((data) => {
-            throw new Error(data.error || "Lỗi khi tải phiên âm");
-          });
-        }
-        return response.json();
-      })
-      .then((data) => {
-        // Create a temporary link to download the transcript
-        const link = document.createElement("a");
-        const blob = new Blob([data.transcript], {
-          type: "text/plain;charset=utf-8",
-        });
-        const url = URL.createObjectURL(blob);
-        link.href = url;
-        link.download = `transcript-${sessionId}.txt`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      })
-      .catch((error) => {
-        console.error("Error downloading transcript:", error);
-        alert("Lỗi khi tải phiên âm: " + error.message);
-      });
   }
 
   // Show image generation modal
@@ -944,12 +2164,12 @@ document.addEventListener("DOMContentLoaded", function () {
     modal.className = "modal";
     modal.innerHTML = `
     <div class="modal-header">
-      <h3>Tạo ảnh mới từ khung hình</h3>
-      <button class="close-btn">&times;</button>
+      <h3><i class="fas fa-palette"></i> Tạo ảnh mới từ khung hình</h3>
+      <button class="close-btn"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body">
       <div class="image-preview">
-        <img src="/static/${framePath}" alt="Khung hình gốc">
+        <img src="${normalizeImagePath(framePath)}" alt="Khung hình gốc">
       </div>
       <div class="generation-form">
         <div class="form-group">
@@ -971,7 +2191,9 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
     </div>
     <div class="modal-footer">
-      <button id="generate-btn" data-frame-path="${framePath}">Tạo ảnh</button>
+      <button id="generate-btn" data-frame-path="${framePath}">
+        <i class="fas fa-magic"></i> Tạo ảnh
+      </button>
     </div>
   `;
 
@@ -990,7 +2212,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const framePath = this.dataset.framePath;
 
       if (!prompt) {
-        alert("Vui lòng nhập mô tả cho ảnh mới");
+        showToast("Lỗi: Vui lòng nhập mô tả cho ảnh mới");
         return;
       }
 
@@ -1000,9 +2222,9 @@ document.addEventListener("DOMContentLoaded", function () {
       // Show generated images section with loading
       generatedImagesSection.style.display = "block";
       generatedImagesSection.innerHTML = `
-      <h3>Ảnh được tạo ra</h3>
+      <h3><i class="fas fa-palette"></i> Ảnh được tạo ra</h3>
       <div class="loading-container">
-        <p>Đang tạo ảnh mới, vui lòng đợi...</p>
+        <p><i class="fas fa-spinner fa-spin"></i> Đang tạo ảnh mới, vui lòng đợi...</p>
         <div class="loading-spinner">
           <img src="/static/img/loading.gif" alt="Loading" width="50">
         </div>
@@ -1045,22 +2267,30 @@ document.addEventListener("DOMContentLoaded", function () {
       .catch((error) => {
         console.error("Error:", error);
         generatedImagesSection.innerHTML = `
-      <h3>Ảnh được tạo ra</h3>
-      <div class="error-message">
-        <p><strong>Lỗi khi tạo ảnh mới:</strong> ${error.message}</p>
-        <p>Vui lòng thử lại sau.</p>
-      </div>
-    `;
+        <h3><i class="fas fa-palette"></i> Ảnh được tạo ra</h3>
+        <div class="error-message">
+          <i class="fas fa-exclamation-triangle"></i> <strong>Lỗi khi tạo ảnh mới:</strong> ${error.message}
+          <p>Vui lòng thử lại sau.</p>
+        </div>
+      `;
       });
   }
 
-  // Display generated images
+  // Function to display generated images
   function displayGeneratedImages(data) {
     generatedImagesSection.innerHTML = `
-    <h3>Ảnh được tạo ra</h3>
+    <h3><i class="fas fa-palette"></i> Ảnh được tạo ra</h3>
     <div class="generation-info">
       <p><strong>Prompt:</strong> ${data.prompt}</p>
       <p><strong>Phong cách:</strong> ${data.style}</p>
+    </div>
+    <div class="download-all-container">
+      <button id="download-all-generated-btn" class="download-all-btn">
+        <i class="fas fa-download"></i> Tải xuống tất cả
+      </button>
+      <button id="add-all-to-queue-btn" class="add-to-queue-btn">
+        <i class="fas fa-layer-group"></i> Thêm tất cả vào hàng đợi
+      </button>
     </div>
     <div class="generated-gallery" id="generated-gallery">
       <!-- Generated images will be displayed here -->
@@ -1068,6 +2298,10 @@ document.addEventListener("DOMContentLoaded", function () {
   `;
 
     const generatedGallery = document.getElementById("generated-gallery");
+
+    // Store all image paths for downloading all at once
+    let allGeneratedImagePaths = [];
+
     if (data.generated_images && data.generated_images.length > 0) {
       data.generated_images.forEach((image) => {
         const imageElement = document.createElement("div");
@@ -1075,19 +2309,20 @@ document.addEventListener("DOMContentLoaded", function () {
         imageElement.dataset.imageId = image.id;
 
         // Đảm bảo đường dẫn ảnh đúng
-        const imagePath = `/static/${image.path}`;
+        const imagePath = normalizeImagePath(image.path);
+        allGeneratedImagePaths.push(imagePath);
 
         imageElement.innerHTML = `
         <img src="${imagePath}" alt="Ảnh được tạo" loading="lazy">
         <div class="image-actions">
-          <button class="download-image-btn" data-path="${imagePath}">Tải xuống</button>
+          <button class="download-image-btn" data-path="${imagePath}">
+            <i class="fas fa-download"></i> Tải xuống
+          </button>
+          <button class="add-to-queue-btn" data-path="${imagePath}">
+            <i class="fas fa-layer-group"></i> Lưu vào hàng đợi
+          </button>
           <button class="delete-image-btn" data-path="${image.path}" data-image-id="${image.id}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              <line x1="10" y1="11" x2="10" y2="17"></line>
-              <line x1="14" y1="11" x2="14" y2="17"></line>
-            </svg>
+            <i class="fas fa-trash-alt"></i>
           </button>
         </div>
       `;
@@ -1096,7 +2331,73 @@ document.addEventListener("DOMContentLoaded", function () {
         imageElement
           .querySelector("img")
           .addEventListener("click", function () {
-            window.open(imagePath, "_blank");
+            // Instead of opening in a new tab, show in a modal with download options
+            const imgSrc = this.src;
+
+            // Create a modal to show the full image with download options
+            const modal = document.createElement("div");
+            modal.className = "modal-overlay";
+            modal.innerHTML = `
+              <div class="modal">
+                <div class="modal-header">
+                  <h3><i class="fas fa-image"></i> Xem ảnh đầy đủ</h3>
+                  <button class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                  <div class="full-image-container">
+                    <img src="${imgSrc}" alt="Ảnh đầy đủ" class="full-image">
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button class="download-image-modal-btn">
+                    <i class="fas fa-download"></i> Tải xuống
+                  </button>
+                  <button class="add-to-queue-modal-btn">
+                    <i class="fas fa-layer-group"></i> Lưu vào hàng đợi
+                  </button>
+                  <button class="save-folder-modal-btn">
+                    <i class="fas fa-folder"></i> Lưu vào thư mục
+                  </button>
+                </div>
+              </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Add close button functionality
+            modal
+              .querySelector(".close-btn")
+              .addEventListener("click", function () {
+                document.body.removeChild(modal);
+              });
+
+            // Add download button functionality
+            modal
+              .querySelector(".download-image-modal-btn")
+              .addEventListener("click", function () {
+                downloadImage(imgSrc);
+              });
+
+            // Add save to folder button functionality
+            modal
+              .querySelector(".save-folder-modal-btn")
+              .addEventListener("click", function () {
+                downloadImagesAsZip(
+                  [imgSrc],
+                  `generated-image-${Date.now()}.zip`
+                );
+              });
+
+            // Add save to queue button functionality
+            modal
+              .querySelector(".add-to-queue-modal-btn")
+              .addEventListener("click", function () {
+                addToImageQueue({
+                  url: imgSrc,
+                  prompt: data.prompt,
+                  timestamp: Date.now(),
+                });
+              });
           });
 
         // Add click event for download button
@@ -1105,6 +2406,18 @@ document.addEventListener("DOMContentLoaded", function () {
           .addEventListener("click", function () {
             const path = this.dataset.path;
             downloadImage(path);
+          });
+
+        // Add click event for add to queue button
+        imageElement
+          .querySelector(".add-to-queue-btn")
+          .addEventListener("click", function () {
+            const path = this.dataset.path;
+            addToImageQueue({
+              url: path,
+              prompt: data.prompt,
+              timestamp: Date.now(),
+            });
           });
 
         // Add click event for delete button
@@ -1118,9 +2431,59 @@ document.addEventListener("DOMContentLoaded", function () {
 
         generatedGallery.appendChild(imageElement);
       });
+
+      // Add click event for download all button
+      document
+        .getElementById("download-all-generated-btn")
+        .addEventListener("click", function () {
+          if (allGeneratedImagePaths.length > 0) {
+            downloadImagesAsZip(
+              allGeneratedImagePaths,
+              `generated-images-${Date.now()}.zip`
+            );
+          } else {
+            showToast("Không có ảnh nào để tải xuống");
+          }
+        });
+
+      // Add click event for add all to queue button
+      document
+        .getElementById("add-all-to-queue-btn")
+        .addEventListener("click", function () {
+          if (allGeneratedImagePaths.length > 0) {
+            let addedCount = 0;
+            const timestamp = Date.now();
+
+            // Duyệt qua mảng theo thứ tự và thêm vào hàng đợi
+            allGeneratedImagePaths.forEach((path, index) => {
+              const exists = imageQueue.some((img) => img.url === path);
+              if (!exists) {
+                imageQueue.push({
+                  url: path,
+                  prompt: data.prompt,
+                  timestamp: timestamp,
+                  order: index, // Lưu thứ tự ban đầu
+                });
+                addedCount++;
+              }
+            });
+
+            if (addedCount > 0) {
+              showToast(`Đã thêm ${addedCount} ảnh vào hàng đợi`);
+              updateQueueButton();
+            } else {
+              showToast("Tất cả ảnh đã có trong hàng đợi");
+            }
+          } else {
+            showToast("Không có ảnh nào để thêm vào hàng đợi");
+          }
+        });
     } else {
       generatedGallery.innerHTML =
-        '<p class="no-images">Không có ảnh nào được tạo ra.</p>';
+        '<p class="no-images"><i class="fas fa-exclamation-circle"></i> Không có ảnh nào được tạo ra.</p>';
+
+      // Hide download all button if no images
+      document.querySelector(".download-all-container").style.display = "none";
     }
   }
 
@@ -1153,36 +2516,177 @@ document.addEventListener("DOMContentLoaded", function () {
             showToast("Đã xóa ảnh thành công");
           }
         } else {
-          alert("Lỗi: " + (data.error || "Không thể xóa ảnh"));
+          showToast("Lỗi: " + (data.error || "Không thể xóa ảnh"));
         }
       })
       .catch((error) => {
         console.error("Error:", error);
-        alert("Lỗi khi xóa ảnh: " + error.message);
+        showToast("Lỗi khi xóa ảnh: " + error.message);
       });
   }
 
   // Download a single image
   function downloadImage(imagePath) {
-    const link = document.createElement("a");
-    link.href = imagePath;
-    link.download = "generated-image-" + Date.now() + ".jpg";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Create a loading indicator
+    showToast("Đang tải xuống ảnh...");
+
+    // Fetch the image as a blob
+    fetch(imagePath)
+      .then((response) => {
+        if (!response.ok) throw new Error("Không thể tải xuống ảnh");
+        return response.blob();
+      })
+      .then((blob) => {
+        // Extract a meaningful filename from the path
+        let filename =
+          imagePath.split("/").pop() || `generated-image-${Date.now()}.jpg`;
+
+        // Use FileSaver.js to save the file
+        saveAs(blob, filename);
+
+        showToast("Đã tải xuống ảnh thành công!");
+      })
+      .catch((error) => {
+        console.error("Error downloading image:", error);
+        showToast("Lỗi khi tải xuống ảnh: " + error.message);
+      });
+  }
+
+  // Download multiple images as a ZIP file
+  function downloadImagesAsZip(images, zipFilename = "images.zip") {
+    showToast("Đang chuẩn bị tệp ZIP...");
+
+    // Create a new ZIP file
+    const zip = new JSZip();
+    const imgFolder = zip.folder("images");
+
+    // Counter for tracking download progress
+    let downloadCount = 0;
+    const totalImages = images.length;
+
+    // Create promises for downloading all images
+    const downloadPromises = images.map((imagePath, index) => {
+      return fetch(imagePath)
+        .then((response) => {
+          if (!response.ok) throw new Error(`Không thể tải ${imagePath}`);
+          return response.blob();
+        })
+        .then((blob) => {
+          // Extract filename from path or generate one
+          let filename = imagePath.split("/").pop() || `image-${index + 1}.jpg`;
+
+          // Add leading zeros to ensure proper sorting
+          // Format: 001_image.jpg, 002_image.jpg, etc.
+          const paddedIndex = String(index + 1).padStart(3, "0");
+          filename = `${paddedIndex}_${filename}`;
+
+          // Add to ZIP file with sequential number to maintain order
+          imgFolder.file(filename, blob);
+
+          // Update counter and toast message
+          downloadCount++;
+          if (downloadCount % 5 === 0 || downloadCount === totalImages) {
+            showToast(`Đã tải ${downloadCount}/${totalImages} ảnh...`);
+          }
+
+          return true;
+        })
+        .catch((error) => {
+          console.error(`Error downloading image ${imagePath}:`, error);
+          return false;
+        });
+    });
+
+    // Wait for all downloads to complete
+    Promise.all(downloadPromises)
+      .then((results) => {
+        // Count successful downloads
+        const successCount = results.filter((result) => result === true).length;
+
+        if (successCount === 0) {
+          showToast("Không thể tải xuống bất kỳ ảnh nào!");
+          return;
+        }
+
+        showToast(`Đang nén ${successCount} ảnh...`);
+
+        // Generate ZIP file
+        return zip.generateAsync({ type: "blob" });
+      })
+      .then((zipBlob) => {
+        if (!zipBlob) return;
+
+        // Add timestamp to filename to avoid duplicates
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const finalFilename = zipFilename.replace(".zip", `-${timestamp}.zip`);
+
+        // Save ZIP file using FileSaver.js
+        saveAs(zipBlob, finalFilename);
+
+        showToast("Đã tải xuống tệp ZIP thành công!");
+      })
+      .catch((error) => {
+        console.error("Error creating ZIP file:", error);
+        showToast("Lỗi khi tạo tệp ZIP: " + error.message);
+      });
+  }
+
+  // Download transcript
+  function downloadTranscript(sessionId) {
+    fetch(`/download-transcript/${sessionId}`)
+      .then((response) => {
+        if (!response.ok) {
+          return response.json().then((data) => {
+            throw new Error(data.error || "Lỗi khi tải phiên âm");
+          });
+        }
+        return response.json();
+      })
+      .then((data) => {
+        // Create a temporary link to download the transcript
+        const link = document.createElement("a");
+        const blob = new Blob([data.transcript], {
+          type: "text/plain;charset=utf-8",
+        });
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = `transcript-${sessionId}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      })
+      .catch((error) => {
+        console.error("Error downloading transcript:", error);
+        showToast("Lỗi khi tải phiên âm: " + error.message);
+      });
   }
 
   // Format time (seconds to MM:SS)
   function formatTime(seconds) {
+    if (seconds === undefined || seconds === null) return "N/A";
+
     const minutes = Math.floor(seconds / 60);
     const secs = Math.round(seconds % 60);
     return `${minutes}:${secs < 10 ? "0" + secs : secs}`;
   }
 
+  // Format script text
+  function formatScriptText(text) {
+    // Thay thế xuống dòng bằng thẻ <p>
+    let formatted = text.replace(/\n\n/g, "</p><p>");
+
+    // Làm nổi bật các phần quan trọng
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    formatted = formatted.replace(/\*(.*?)\*/g, "<em>$1</em>");
+
+    return `<p>${formatted}</p>`;
+  }
+
   // Extract script from keyframes
   extractScriptBtn.addEventListener("click", function () {
-    if (!currentSessionId) {
-      alert("Không có dữ liệu khung hình để phân tích");
+    if (!currentSessionId && !keyframesData.length) {
+      showToast("Lỗi: Không có dữ liệu khung hình để phân tích");
       return;
     }
 
@@ -1197,16 +2701,33 @@ document.addEventListener("DOMContentLoaded", function () {
     // Lấy giá trị temperature
     const temperature = parseFloat(scriptTemperatureSlider.value);
 
+    // Chuẩn bị dữ liệu để gửi đến server
+    let requestData = {
+      temperature: temperature,
+    };
+
+    // Nếu có session_id, thêm vào request
+    if (currentSessionId) {
+      requestData.session_id = currentSessionId;
+    }
+    // Nếu không có session_id nhưng có keyframesData (trường hợp đặc biệt), gửi dữ liệu keyframes trực tiếp
+    else if (keyframesData.length > 0) {
+      requestData.keyframes_data = keyframesData;
+
+      // Kiểm tra nếu có dữ liệu transcript
+      const transcriptContent = document.querySelector(".transcript-text");
+      if (transcriptContent && transcriptContent.textContent) {
+        requestData.transcript_text = transcriptContent.textContent;
+      }
+    }
+
     // Gửi request đến server
     fetch("/generate-script", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        session_id: currentSessionId,
-        temperature: temperature,
-      }),
+      body: JSON.stringify(requestData),
     })
       .then((response) => {
         if (!response.ok) {
@@ -1252,47 +2773,33 @@ document.addEventListener("DOMContentLoaded", function () {
         scriptContent.style.display = "block";
         scriptContent.innerHTML = `
         <div class="error-message">
-          <p><strong>Lỗi khi trích xuất kịch bản:</strong> ${error.message}</p>
+          <p><i class="fas fa-exclamation-triangle"></i> <strong>Lỗi khi trích xuất kịch bản:</strong> ${error.message}</p>
           <p>Vui lòng thử lại sau.</p>
         </div>
       `;
       });
   });
 
-  // Hàm format kịch bản để hiển thị đẹp hơn
-  function formatScriptText(text) {
-    // Thay thế xuống dòng bằng thẻ <p>
-    let formatted = text.replace(/\n\n/g, "</p><p>");
-
-    // Làm nổi bật các phần quan trọng
-    formatted = formatted.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-    formatted = formatted.replace(/\*(.*?)\*/g, "<em>$1</em>");
-
-    return `<p>${formatted}</p>`;
-  }
-
   // Download all keyframes
   downloadAllBtn.addEventListener("click", function () {
-    if (!currentSessionId) return;
+    if (!currentSessionId) {
+      showToast("Lỗi: Không có phiên làm việc hiện tại");
+      return;
+    }
 
     fetch(`/download/${currentSessionId}`)
       .then((response) => response.json())
       .then((data) => {
         if (data.files && data.files.length > 0) {
-          // Create a zip file using JSZip (would need to include the library)
-          // For simplicity, we'll just open all images in new tabs
-          data.files.forEach((file, index) => {
-            setTimeout(() => {
-              window.open(`/static/${file}`, "_blank");
-            }, index * 100);
-          });
+          const imageUrls = data.files.map((file) => `/static/${file}`);
+          downloadImagesAsZip(imageUrls, `keyframes-${currentSessionId}.zip`);
         } else {
-          alert("Không có khung hình nào để tải xuống");
+          showToast("Không có khung hình nào để tải xuống");
         }
       })
       .catch((error) => {
         console.error("Error downloading files:", error);
-        alert("Lỗi khi tải xuống các khung hình");
+        showToast("Lỗi khi tải xuống các khung hình");
       });
   });
 
@@ -1306,18 +2813,21 @@ document.addEventListener("DOMContentLoaded", function () {
     if (similarityNotification) {
       similarityNotification.style.display = "none";
     }
+    if (duplicateNotification) {
+      duplicateNotification.style.display = "none";
+    }
     uploadContainer.style.display = "flex";
 
     // Reset file upload area
     uploadArea.innerHTML = `
     <div class="upload-icon">
-      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-        <polyline points="17 8 12 3 7 8"></polyline>
-        <line x1="12" y1="3" x2="12" y2="15"></line>
-      </svg>
+      <i class="fas fa-cloud-upload-alt fa-3x"></i>
     </div>
-    <p>Kéo thả video vào đây hoặc <span class="browse-text">chọn file</span></p>
+    <p>
+      Kéo thả video vào đây hoặc
+      <span class="browse-text">chọn file</span>
+    </p>
+    <p class="supported-formats">Hỗ trợ: MP4, AVI, MOV, MKV, WEBM</p>
   `;
 
     // Reset YouTube input
@@ -1337,4 +2847,1635 @@ document.addEventListener("DOMContentLoaded", function () {
     const errorMessages = document.querySelectorAll(".error-message");
     errorMessages.forEach((msg) => msg.remove());
   });
+
+  // Function to create an image using Leonardo.ai directly from a keyframe
+  function directLeonardoImageGeneration(framePath) {
+    // Show loading toast
+    showToast("Đang tạo ảnh mới, vui lòng đợi...");
+
+    // Create a modal to show progress and the image when ready
+    const modal = document.createElement("div");
+    modal.className = "modal-overlay";
+    modal.innerHTML = `
+      <div class="modal leonardo-modal">
+        <div class="modal-header">
+          <h3><i class="fas fa-image"></i> Đang tạo ảnh mới</h3>
+          <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="image-preview">
+            <img src="${normalizeImagePath(framePath)}" alt="Selected image">
+          </div>
+          <div class="leonardo-loading">
+            <p><i class="fas fa-spinner fa-spin"></i> Đang tạo prompt và phân tích hình ảnh...</p>
+          </div>
+          <div class="leonardo-result" style="display:none;">
+            <div class="leonardo-image-container">
+              <!-- Image will be inserted here -->
+            </div>
+            <div class="leonardo-image-info">
+              <h4>Prompt:</h4>
+              <div class="leonardo-prompt"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="download-leonardo-btn" style="display:none;">
+            <i class="fas fa-download"></i> Tải xuống
+          </button>
+          <button class="add-queue-leonardo-btn" style="display:none;">
+            <i class="fas fa-layer-group"></i> Lưu vào hàng đợi
+          </button>
+          <button class="save-leonardo-folder-btn" style="display:none;">
+            <i class="fas fa-folder"></i> Lưu vào thư mục
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Define polling interval variable in the outer scope
+    let pollingInterval;
+
+    // Add close button functionality
+    const closeBtn = modal.querySelector(".close-btn");
+    closeBtn.addEventListener("click", function () {
+      document.body.removeChild(modal);
+      // If we're still polling, stop it when the modal is closed
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    });
+
+    // First call API to generate prompt with Gemini
+    fetch("/generate-gemini-prompt", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        keyframe_path: framePath,
+      }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          return response.json().then((data) => {
+            throw new Error(
+              data.error || "Error generating prompt with Gemini"
+            );
+          });
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (!data.success) {
+          throw new Error(data.error || "Failed to generate prompt");
+        }
+
+        // Update loading message
+        const loadingElement = modal.querySelector(".leonardo-loading p");
+        loadingElement.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang tạo ảnh với Leonardo.ai...`;
+
+        // Now call the Leonardo API with the generated prompt
+        return fetch("/generate-leonardo-image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: data.prompt,
+          }),
+        });
+      })
+      .then((response) => {
+        if (!response.ok) {
+          return response.json().then((data) => {
+            throw new Error(data.error || "Lỗi khi tạo ảnh với Leonardo.ai");
+          });
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (data.success) {
+          // Start polling for generation status
+          const generationId = data.generation_id;
+          let pollingCount = 0;
+
+          // Function to check generation status
+          const checkGenerationStatus = () => {
+            fetch(`/get-leonardo-image/${generationId}`)
+              .then((response) => {
+                // Kiểm tra nếu response không OK (như 404, 500, v.v.)
+                if (!response.ok) {
+                  throw new Error(
+                    `Lỗi HTTP: ${response.status} - ${response.statusText}`
+                  );
+                }
+                // Kiểm tra content-type để đảm bảo là JSON
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                  throw new Error(
+                    `Phản hồi không hợp lệ: content-type ${contentType}`
+                  );
+                }
+                return response.json();
+              })
+              .then((result) => {
+                pollingCount++;
+
+                // Update the loading message with status
+                const loadingElement = modal.querySelector(
+                  ".leonardo-loading p"
+                );
+
+                if (result.success) {
+                  if (result.complete) {
+                    // Generation is complete, display the image
+                    clearInterval(pollingInterval);
+
+                    // Hide loading message and show result
+                    modal.querySelector(".leonardo-loading").style.display =
+                      "none";
+                    modal.querySelector(".leonardo-result").style.display =
+                      "block";
+
+                    // Display the image
+                    const imageContainer = modal.querySelector(
+                      ".leonardo-image-container"
+                    );
+                    const promptContainer =
+                      modal.querySelector(".leonardo-prompt");
+
+                    // Get the first image (we requested only one)
+                    const image = result.images[0];
+
+                    // Display the image
+                    imageContainer.innerHTML = `
+                      <img src="${image.url}" alt="Generated image" class="leonardo-generated-image">
+                    `;
+
+                    // Display the prompt
+                    promptContainer.textContent = result.prompt;
+
+                    // Show download button
+                    const downloadBtn = modal.querySelector(
+                      ".download-leonardo-btn"
+                    );
+                    downloadBtn.style.display = "flex";
+                    downloadBtn.addEventListener("click", function () {
+                      // Use our new download function instead of opening in a new tab
+                      downloadImage(image.url);
+                    });
+
+                    // Show add to queue button
+                    const addQueueBtn = modal.querySelector(
+                      ".add-queue-leonardo-btn"
+                    );
+                    addQueueBtn.style.display = "flex";
+                    addQueueBtn.addEventListener("click", function () {
+                      // Add the image to queue
+                      addToImageQueue({
+                        url: image.url,
+                        prompt: result.prompt,
+                        timestamp: Date.now(),
+                      });
+                    });
+
+                    // Show save to folder button
+                    const saveFolderBtn = modal.querySelector(
+                      ".save-leonardo-folder-btn"
+                    );
+                    saveFolderBtn.style.display = "flex";
+                    saveFolderBtn.addEventListener("click", function () {
+                      // Create a zip file with just this one image
+                      downloadImagesAsZip(
+                        [image.url],
+                        `leonardo-image-${Date.now()}.zip`
+                      );
+                    });
+
+                    // Update the modal title
+                    modal.querySelector(
+                      ".modal-header h3"
+                    ).innerHTML = `<i class="fas fa-image"></i> Ảnh đã được tạo thành công`;
+
+                    // Show success message
+                    showToast("Ảnh đã được tạo thành công!");
+                  } else {
+                    // Still processing, update status
+                    loadingElement.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang tạo ảnh (Trạng thái: ${result.status})`;
+
+                    // If we've been polling for too long (more than 2 minutes), stop polling
+                    if (pollingCount > 24) {
+                      // 24 polls at 5s interval = 2 minutes
+                      clearInterval(pollingInterval);
+                      loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Quá thời gian chờ. Vui lòng kiểm tra trên trang Leonardo.ai`;
+                    }
+                  }
+                } else {
+                  // Error occurred while checking status
+                  clearInterval(pollingInterval);
+                  loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Lỗi: ${
+                    result.error || "Không thể kiểm tra trạng thái"
+                  }`;
+                }
+              })
+              .catch((error) => {
+                console.error("Error checking generation status:", error);
+                const loadingElement = modal.querySelector(
+                  ".leonardo-loading p"
+                );
+                loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Lỗi: ${error.message}`;
+              });
+          };
+
+          // Start polling - check every 5 seconds
+          pollingInterval = setInterval(checkGenerationStatus, 5000);
+          // Also check immediately
+          checkGenerationStatus();
+        } else {
+          // Error occurred during initial request
+          throw new Error(data.error || "Failed to start image generation");
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        const loadingElement = modal.querySelector(".leonardo-loading p");
+        loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <strong>Lỗi:</strong> ${error.message}`;
+      });
+  }
+
+  // Function to create an image using Leonardo.ai
+  function createLeonardoImage(prompt) {
+    showToast("Đang gửi yêu cầu tạo ảnh với Leonardo.ai...");
+
+    // Show loading state
+    const createBtn = document.querySelector(".create-leonardo-image-btn");
+    const originalBtnText = createBtn.innerHTML;
+    createBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang xử lý...`;
+    createBtn.disabled = true;
+
+    // Call the Leonardo.ai API endpoint
+    fetch("/generate-leonardo-image", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+      }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          return response.json().then((data) => {
+            throw new Error(data.error || "Lỗi khi tạo ảnh với Leonardo.ai");
+          });
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (data.success) {
+          // Show initial success message
+          showToast(`Yêu cầu tạo ảnh đã được gửi! Đang tiến hành tạo ảnh...`);
+
+          // Start polling for generation status
+          const generationId = data.generation_id;
+          let pollingCount = 0;
+
+          // Create a modal to show progress and the image when ready
+          const modal = document.createElement("div");
+          modal.className = "modal-overlay";
+          modal.innerHTML = `
+            <div class="modal leonardo-modal">
+              <div class="modal-header">
+                <h3><i class="fas fa-image"></i> Đang tạo ảnh với Leonardo.ai</h3>
+                <button class="close-btn">&times;</button>
+              </div>
+              <div class="modal-body">
+                <div class="leonardo-loading">
+                  <p><i class="fas fa-spinner fa-spin"></i> Đang xử lý yêu cầu...</p>
+                  <div class="generation-progress">
+                    <p>Leonardo.ai đang tạo hình ảnh của bạn. Quá trình này có thể mất từ 30 giây đến 1 phút.</p>
+                    <p>ID tạo ảnh: <strong>${generationId}</strong></p>
+                  </div>
+                </div>
+                <div class="leonardo-result" style="display:none;">
+                  <div class="leonardo-image-container">
+                    <!-- Image will be inserted here -->
+                  </div>
+                  <div class="leonardo-image-info">
+                    <h4>Prompt:</h4>
+                    <div class="leonardo-prompt"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button class="download-leonardo-btn" style="display:none;">
+                  <i class="fas fa-download"></i> Tải xuống
+                </button>
+                <button class="add-queue-leonardo-btn" style="display:none;">
+                  <i class="fas fa-layer-group"></i> Lưu vào hàng đợi
+                </button>
+                <button class="save-leonardo-folder-btn" style="display:none;">
+                  <i class="fas fa-folder"></i> Lưu vào thư mục
+                </button>
+              </div>
+            </div>
+          `;
+
+          document.body.appendChild(modal);
+
+          // Add close button functionality
+          const closeBtn = modal.querySelector(".close-btn");
+          closeBtn.addEventListener("click", function () {
+            document.body.removeChild(modal);
+            // If we're still polling, stop it when the modal is closed
+            if (pollingInterval) {
+              clearInterval(pollingInterval);
+            }
+          });
+
+          // Function to check generation status
+          const checkGenerationStatus = () => {
+            fetch(`/get-leonardo-image/${generationId}`)
+              .then((response) => {
+                // Kiểm tra nếu response không OK (như 404, 500, v.v.)
+                if (!response.ok) {
+                  throw new Error(
+                    `Lỗi HTTP: ${response.status} - ${response.statusText}`
+                  );
+                }
+                // Kiểm tra content-type để đảm bảo là JSON
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                  throw new Error(
+                    `Phản hồi không hợp lệ: content-type ${contentType}`
+                  );
+                }
+                return response.json();
+              })
+              .then((result) => {
+                pollingCount++;
+
+                // Update the loading message with status
+                const loadingElement = modal.querySelector(
+                  ".leonardo-loading p"
+                );
+
+                if (result.success) {
+                  if (result.complete) {
+                    // Generation is complete, display the image
+                    clearInterval(pollingInterval);
+
+                    // Hide loading message and show result
+                    modal.querySelector(".leonardo-loading").style.display =
+                      "none";
+                    modal.querySelector(".leonardo-result").style.display =
+                      "block";
+
+                    // Display the image
+                    const imageContainer = modal.querySelector(
+                      ".leonardo-image-container"
+                    );
+                    const imageInfo = modal.querySelector(
+                      ".leonardo-image-info"
+                    );
+                    const promptContainer =
+                      modal.querySelector(".leonardo-prompt");
+
+                    // Get the first image (we requested only one)
+                    const image = result.images[0];
+
+                    // Display the image
+                    imageContainer.innerHTML = `
+                      <img src="${image.url}" alt="Generated image" class="leonardo-generated-image">
+                    `;
+
+                    // Display the prompt
+                    promptContainer.textContent = result.prompt;
+
+                    // Show download button
+                    const downloadBtn = modal.querySelector(
+                      ".download-leonardo-btn"
+                    );
+                    downloadBtn.style.display = "flex";
+                    downloadBtn.addEventListener("click", function () {
+                      // Use our new download function instead of opening in a new tab
+                      downloadImage(image.url);
+                    });
+
+                    // Show add to queue button
+                    const addQueueBtn = modal.querySelector(
+                      ".add-queue-leonardo-btn"
+                    );
+                    addQueueBtn.style.display = "flex";
+                    addQueueBtn.addEventListener("click", function () {
+                      // Add the image to queue
+                      addToImageQueue({
+                        url: image.url,
+                        prompt: result.prompt,
+                        timestamp: Date.now(),
+                      });
+                    });
+
+                    // Show save to folder button
+                    const saveFolderBtn = modal.querySelector(
+                      ".save-leonardo-folder-btn"
+                    );
+                    saveFolderBtn.style.display = "flex";
+                    saveFolderBtn.addEventListener("click", function () {
+                      // Create a zip file with just this one image
+                      downloadImagesAsZip(
+                        [image.url],
+                        `leonardo-image-${Date.now()}.zip`
+                      );
+                    });
+
+                    // Update the modal title
+                    modal.querySelector(
+                      ".modal-header h3"
+                    ).innerHTML = `<i class="fas fa-image"></i> Ảnh đã được tạo thành công`;
+
+                    // Restore the create button state
+                    createBtn.innerHTML = originalBtnText;
+                    createBtn.disabled = false;
+
+                    // Show success message
+                    showToast("Ảnh đã được tạo thành công!");
+                  } else {
+                    // Still processing, update status
+                    loadingElement.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang tạo ảnh (Trạng thái: ${result.status})`;
+
+                    // If we've been polling for too long (more than 2 minutes), stop polling
+                    if (pollingCount > 24) {
+                      // 24 polls at 5s interval = 2 minutes
+                      clearInterval(pollingInterval);
+                      loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Quá thời gian chờ. Vui lòng kiểm tra trên trang Leonardo.ai`;
+
+                      // Restore the create button state
+                      createBtn.innerHTML = originalBtnText;
+                      createBtn.disabled = false;
+                    }
+                  }
+                } else {
+                  // Error occurred while checking status
+                  clearInterval(pollingInterval);
+                  loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Lỗi: ${
+                    result.error || "Không thể kiểm tra trạng thái"
+                  }`;
+
+                  // Restore the create button state
+                  createBtn.innerHTML = originalBtnText;
+                  createBtn.disabled = false;
+                }
+              })
+              .catch((error) => {
+                console.error("Error checking generation status:", error);
+                // Restore the create button state if error
+                createBtn.innerHTML = originalBtnText;
+                createBtn.disabled = false;
+              });
+          };
+
+          // Start polling - check every 5 seconds
+          const pollingInterval = setInterval(checkGenerationStatus, 5000);
+          // Also check immediately
+          checkGenerationStatus();
+        } else {
+          // Error occurred during initial request
+          showToast(`Lỗi: ${data.error}`);
+          // Restore the create button state
+          createBtn.innerHTML = originalBtnText;
+          createBtn.disabled = false;
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        createBtn.innerHTML = originalBtnText;
+        createBtn.disabled = false;
+        showToast(`Lỗi: ${error.message}`);
+      });
+  }
+
+  // Add event listener for the queue button
+  const queueBtn = document.getElementById("view-image-queue");
+  if (queueBtn) {
+    queueBtn.addEventListener("click", function () {
+      showImageQueueModal();
+    });
+  }
+
+  // Hàm tự động xử lý video từ trích xuất đến tạo ảnh mới và lưu vào hàng đợi
+  function autoProcessVideo() {
+    console.log("autoProcessVideo function called");
+
+    // Kiểm tra xem đã có khung hình được trích xuất chưa
+    const keyframesGallery = document.getElementById("keyframes-gallery");
+    if (!keyframesGallery || keyframesGallery.children.length === 0) {
+      showToast(
+        "Không có khung hình nào để xử lý. Vui lòng trích xuất khung hình trước."
+      );
+      return;
+    }
+
+    // Tạo modal theo dõi tiến trình
+    const modalOverlay = document.createElement("div");
+    modalOverlay.className = "modal-overlay";
+
+    const modal = document.createElement("div");
+    modal.className = "modal";
+    modal.innerHTML = `
+      <div class="modal-header">
+        <h3><i class="fas fa-magic"></i> Tự động thao tác</h3>
+        <button class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="auto-process-progress">
+          <div class="progress-step" id="step-generate">
+            <div class="progress-step-icon">1</div>
+            <div class="progress-step-text">Tạo ảnh mới từ khung hình</div>
+            <div class="progress-step-bar">
+              <div class="progress-step-bar-fill" style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="progress-step" id="step-queue">
+            <div class="progress-step-icon">2</div>
+            <div class="progress-step-text">Lưu ảnh vào hàng đợi</div>
+            <div class="progress-step-bar">
+              <div class="progress-step-bar-fill" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="auto-process-status">
+          <p id="auto-status-text"><i class="fas fa-spinner fa-spin"></i> Đang chuẩn bị...</p>
+        </div>
+      </div>
+    `;
+
+    modalOverlay.appendChild(modal);
+    document.body.appendChild(modalOverlay);
+
+    // Thêm sự kiện cho nút đóng
+    const closeBtn = modal.querySelector(".close-btn");
+    closeBtn.addEventListener("click", function () {
+      if (confirm("Bạn có chắc chắn muốn hủy quá trình tự động thao tác?")) {
+        document.body.removeChild(modalOverlay);
+      }
+    });
+
+    // Đối tượng để theo dõi tiến trình
+    const progress = {
+      generate: 0,
+      queue: 0,
+    };
+
+    // Hàm cập nhật trạng thái
+    function updateStatus(step, percent, text) {
+      const stepEl = document.getElementById(`step-${step}`);
+      const statusText = document.getElementById("auto-status-text");
+
+      // Cập nhật phần trăm tiến độ
+      progress[step] = percent;
+      stepEl.querySelector(
+        ".progress-step-bar-fill"
+      ).style.width = `${percent}%`;
+
+      // Cập nhật trạng thái active/completed
+      if (percent === 0) {
+        stepEl.classList.remove("active", "completed");
+      } else if (percent < 100) {
+        stepEl.classList.add("active");
+        stepEl.classList.remove("completed");
+      } else {
+        stepEl.classList.remove("active");
+        stepEl.classList.add("completed");
+      }
+
+      // Cập nhật text trạng thái
+      if (text) {
+        statusText.innerHTML = text;
+      }
+    }
+
+    // Lấy danh sách đường dẫn khung hình
+    const framesPaths = [];
+    const keyframes = keyframesGallery.querySelectorAll(".keyframe");
+
+    keyframes.forEach((keyframe) => {
+      const imgElement = keyframe.querySelector("img");
+      if (imgElement && imgElement.src) {
+        // Extract the path relative to /static from the full URL
+        const fullSrc = imgElement.src;
+        // Find the index of "/static/" in the URL
+        const staticIndex = fullSrc.indexOf("/static/");
+        if (staticIndex !== -1) {
+          // Extract the path after "/static/"
+          const relativePath = fullSrc.substring(staticIndex + 8); // +8 to skip "/static/"
+          framesPaths.push(relativePath);
+        } else {
+          console.error("Could not find /static/ in image path:", fullSrc);
+        }
+      }
+    });
+
+    // Nếu không có khung hình nào, hiển thị thông báo và dừng
+    if (framesPaths.length === 0) {
+      updateStatus(
+        "generate",
+        100,
+        `<i class="fas fa-exclamation-triangle"></i> Không có khung hình nào để tạo ảnh mới!`
+      );
+      updateStatus(
+        "queue",
+        100,
+        `<i class="fas fa-exclamation-triangle"></i> Không có ảnh nào để thêm vào hàng đợi!`
+      );
+      setTimeout(() => {
+        document.body.removeChild(modalOverlay);
+      }, 3000);
+      return;
+    }
+
+    // Bước 1: Tự động tạo ảnh mới cho mỗi khung hình
+    updateStatus(
+      "generate",
+      5,
+      `<i class="fas fa-spinner fa-spin"></i> Chuẩn bị tạo ảnh mới từ ${framesPaths.length} khung hình...`
+    );
+
+    // Xử lý tất cả các khung hình đã trích xuất
+    const selectedFrames = framesPaths;
+
+    updateStatus(
+      "generate",
+      10,
+      `<i class="fas fa-spinner fa-spin"></i> Đang tạo ảnh mới từ ${selectedFrames.length} khung hình...`
+    );
+
+    // Tạo ảnh mới từ mỗi khung hình và lưu vào hàng đợi
+    const generatedImages = [];
+    let processedCount = 0;
+
+    // Xử lý tuần tự các khung hình để tránh quá tải server
+    function processNextFrame(index) {
+      if (index >= selectedFrames.length) {
+        // Tất cả khung hình đã được xử lý
+        updateStatus(
+          "generate",
+          100,
+          `<i class="fas fa-check-circle"></i> Đã tạo ${generatedImages.length} ảnh mới thành công!`
+        );
+
+        // Bước 2: Thêm ảnh vào hàng đợi
+        updateStatus(
+          "queue",
+          10,
+          `<i class="fas fa-spinner fa-spin"></i> Đang thêm ${generatedImages.length} ảnh vào hàng đợi...`
+        );
+
+        // Thêm từng ảnh vào hàng đợi
+        let queuedCount = 0;
+        generatedImages.forEach((image, idx) => {
+          setTimeout(() => {
+            addToImageQueue({
+              url: image.url,
+              prompt: image.prompt,
+              timestamp: Date.now(),
+              order: idx,
+            });
+
+            queuedCount++;
+            const queueProgress = Math.floor(
+              (queuedCount / generatedImages.length) * 100
+            );
+            updateStatus(
+              "queue",
+              queueProgress,
+              `<i class="fas fa-spinner fa-spin"></i> Đã thêm ${queuedCount}/${generatedImages.length} ảnh vào hàng đợi...`
+            );
+
+            if (queuedCount === generatedImages.length) {
+              // Hoàn thành tất cả các bước
+              updateStatus(
+                "queue",
+                100,
+                `<i class="fas fa-check-circle"></i> Đã thêm ${queuedCount} ảnh vào hàng đợi thành công!`
+              );
+
+              // Đóng modal và hiển thị hàng đợi
+              setTimeout(() => {
+                document.body.removeChild(modalOverlay);
+                showImageQueueModal();
+              }, 1500);
+            }
+          }, idx * 100); // Thêm vào hàng đợi cách nhau 100ms
+        });
+
+        return;
+      }
+
+      const framePath = selectedFrames[index];
+
+      // Cập nhật trạng thái
+      const generateProgress =
+        Math.floor((index / selectedFrames.length) * 90) + 10;
+      updateStatus(
+        "generate",
+        generateProgress,
+        `<i class="fas fa-spinner fa-spin"></i> Đang tạo ảnh mới (${
+          index + 1
+        }/${selectedFrames.length})...`
+      );
+
+      // Tạo ảnh mới sử dụng hàm generateGeminiPromptAndImage
+      generateGeminiPromptAndImage(framePath)
+        .then((result) => {
+          if (result && result.url) {
+            generatedImages.push(result);
+          }
+
+          // Xử lý khung hình tiếp theo
+          processedCount++;
+          processNextFrame(index + 1);
+        })
+        .catch((error) => {
+          console.error(`Lỗi khi tạo ảnh từ khung hình ${index + 1}:`, error);
+
+          // Hiển thị thông báo lỗi trong modal nhưng tiếp tục xử lý
+          updateStatus(
+            "generate",
+            generateProgress,
+            `<i class="fas fa-exclamation-triangle"></i> Khung hình ${
+              index + 1
+            }: ${error.message}. Đang tiếp tục...`
+          );
+
+          // Đặt timeout để hiển thị lỗi trong thời gian ngắn rồi tiếp tục
+          setTimeout(() => {
+            // Mặc dù có lỗi, vẫn tiếp tục xử lý khung hình tiếp theo
+            processedCount++;
+            processNextFrame(index + 1);
+          }, 2000);
+        });
+    }
+
+    // Bắt đầu xử lý khung hình từ đầu tiên
+    processNextFrame(0);
+  }
+
+  // Hàm tạo ảnh mới từ khung hình sử dụng Gemini và Leonardo
+  function generateGeminiPromptAndImage(framePath) {
+    return new Promise((resolve, reject) => {
+      console.log("Processing frame:", framePath);
+
+      // Đầu tiên gọi API tạo prompt từ Gemini
+      fetch("/generate-gemini-prompt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          keyframe_path: framePath,
+        }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(
+              `Lỗi HTTP: ${response.status} - ${response.statusText}`
+            );
+          }
+          // Kiểm tra content-type để đảm bảo là JSON
+          const contentType = response.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            throw new Error(
+              `Phản hồi không hợp lệ: content-type ${contentType}`
+            );
+          }
+          return response.json().then((data) => {
+            if (!data.success) {
+              throw new Error(data.error || "Lỗi khi tạo prompt với Gemini");
+            }
+            console.log(
+              "Successfully generated prompt:",
+              data.prompt.substring(0, 50) + "..."
+            );
+            return data;
+          });
+        })
+        .then((data) => {
+          const prompt = data.prompt;
+
+          // Tiếp theo gọi API tạo ảnh với Leonardo
+          return fetch("/generate-leonardo-image", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              prompt: prompt,
+            }),
+          });
+        })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(
+              `Lỗi HTTP: ${response.status} - ${response.statusText}`
+            );
+          }
+          // Kiểm tra content-type để đảm bảo là JSON
+          const contentType = response.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            throw new Error(
+              `Phản hồi không hợp lệ: content-type ${contentType}`
+            );
+          }
+          return response.json().then((data) => {
+            if (!data.success) {
+              throw new Error(data.error || "Lỗi khi tạo ảnh với Leonardo");
+            }
+            return data;
+          });
+        })
+        .then((data) => {
+          const generationId = data.generation_id;
+
+          // Hàm kiểm tra trạng thái tạo ảnh
+          function checkImageStatus() {
+            return fetch(`/get-leonardo-image/${generationId}`)
+              .then((response) => {
+                // Kiểm tra nếu response không OK (như 404, 500, v.v.)
+                if (!response.ok) {
+                  throw new Error(
+                    `Lỗi HTTP: ${response.status} - ${response.statusText}`
+                  );
+                }
+                // Kiểm tra content-type để đảm bảo là JSON
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                  throw new Error(
+                    `Phản hồi không hợp lệ: content-type ${contentType}`
+                  );
+                }
+                return response.json();
+              })
+              .then((result) => {
+                if (result.success) {
+                  if (result.complete) {
+                    // Ảnh đã được tạo thành công
+                    return {
+                      url: result.images[0].url,
+                      prompt: result.prompt,
+                    };
+                  } else {
+                    // Ảnh đang được tạo, đợi và kiểm tra lại
+                    return new Promise((resolve) => {
+                      setTimeout(() => {
+                        resolve(checkImageStatus());
+                      }, 3000); // Kiểm tra lại sau 3 giây
+                    });
+                  }
+                } else {
+                  throw new Error(
+                    result.error || "Không thể kiểm tra trạng thái tạo ảnh"
+                  );
+                }
+              });
+          }
+
+          // Bắt đầu kiểm tra trạng thái
+          return checkImageStatus();
+        })
+        .then((imageData) => {
+          resolve(imageData);
+        })
+        .catch((error) => {
+          console.error("Lỗi trong quá trình tạo ảnh:", error);
+          // Ghi log chi tiết hơn để giúp gỡ lỗi
+          if (error.stack) {
+            console.debug("Stack trace:", error.stack);
+          }
+
+          // Chuẩn bị thông báo lỗi cho người dùng
+          let errorMessage = error.message || "Lỗi không xác định";
+
+          // Một số lỗi có thể cần xử lý đặc biệt
+          if (errorMessage.includes("404")) {
+            errorMessage =
+              "Không tìm thấy API endpoint. Vui lòng kiểm tra cài đặt server.";
+          } else if (errorMessage.includes("content-type")) {
+            errorMessage =
+              "Server trả về định dạng không hợp lệ. Vui lòng kiểm tra API.";
+          }
+
+          reject(new Error(errorMessage));
+        });
+    });
+  }
+
+  // Add event listener for the auto process button
+  const autoProcessBtn = document.getElementById("auto-process-btn");
+  if (autoProcessBtn) {
+    // Hide the button initially
+    autoProcessBtn.parentElement.style.display = "none";
+
+    // KHÔNG thêm event listener ở đây vì đã được thêm trong displayResults và displayAzureResults
+  }
+
+  // Kiểm tra phương pháp được chọn khi tải trang
+  const activeMethod = document.querySelector(".method-option.active");
+  if (activeMethod && activeMethod.dataset.method === "azure") {
+    // Get the basic parameters section by finding the h4 with "Tham số cơ bản" text
+    const basicParamsHeading = Array.from(document.querySelectorAll("h4")).find(
+      (h4) => h4.textContent.trim() === "Tham số cơ bản"
+    );
+    const basicParamsSection = basicParamsHeading
+      ? basicParamsHeading.closest(".setting-group")
+      : null;
+
+    if (basicParamsSection) {
+      basicParamsSection.style.display = "none";
+    }
+  }
+
+  // Add CSS for the new section
+  const style = document.createElement("style");
+  style.textContent = `
+    .image-batch-section {
+      margin-top: 40px;
+      border-top: 1px dashed #ccc;
+      padding-top: 30px;
+    }
+    
+    .batch-processing-container {
+      width: 100%;
+    }
+    
+    .image-batch-container,
+    .batch-processing-container {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .batch-upload-area {
+      border: 2px dashed #6c7ae0;
+      border-radius: 8px;
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 20px;
+      background-color: #f0f2ff;
+      transition: all 0.3s ease;
+    }
+    
+    .batch-upload-area:hover {
+      background-color: #e8ecff;
+      border-color: #5468e7;
+    }
+    
+    .prompt-section {
+      margin-bottom: 20px;
+    }
+    
+    .prompt-section textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ced4da;
+      border-radius: 8px;
+      font-size: 14px;
+      resize: vertical;
+    }
+    
+    .prompt-tips {
+      background-color: #e8f4ff;
+      padding: 10px 15px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+    
+    .prompt-tips ul {
+      margin: 5px 0 0 20px;
+      padding: 0;
+    }
+    
+    .prompt-tips li {
+      margin-bottom: 5px;
+    }
+    
+    .autosave-note {
+      margin-top: 10px;
+      padding: 5px 10px;
+      background-color: #f2fff2;
+      border-left: 3px solid #28a745;
+      color: #155724;
+      font-size: 13px;
+      border-radius: 3px;
+    }
+    
+    .autosave-note i {
+      margin-right: 5px;
+    }
+    
+    .batch-actions {
+      text-align: center;
+      margin-top: 20px;
+    }
+    
+    .batch-progress-container {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .batch-results-container {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e5e5;
+    }
+    
+    .batch-results-section {
+      margin-top: 40px;
+    }
+    
+    .batch-results-summary {
+      display: flex;
+      justify-content: space-around;
+      margin: 20px 0;
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .batch-results-actions {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .batch-results-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    
+    .result-item {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    
+    .result-image {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+    }
+    
+    .result-content {
+      padding: 15px;
+    }
+    
+    .result-text {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      white-space: pre-wrap;
+    }
+    
+    .selected-files-info {
+      margin-top: 15px;
+      padding: 8px 15px;
+      background-color: #e9ecef;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .error-message {
+      color: #dc3545;
+      margin-top: 5px;
+      font-size: 13px;
+    }
+    
+    @media (max-width: 768px) {
+      .batch-results-summary {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .batch-results-actions {
+        flex-direction: column;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Batch image processing elements
+  const batchBrowseBtn = document.getElementById("batch-browse-btn");
+  const imageBatchInput = document.getElementById("image-batch-input");
+  const selectedFilesInfo = document.getElementById("selected-files-info");
+  const selectedFilesCount = document.getElementById("selected-files-count");
+  const clearSelectionBtn = document.getElementById("clear-selection-btn");
+  const geminiPromptInput = document.getElementById("gemini-prompt");
+  const processImagesBtn = document.getElementById("process-images-btn");
+  const batchProgressContainer = document.getElementById(
+    "batch-progress-container"
+  );
+  const batchProgress = document.getElementById("batch-progress");
+  const batchProgressText = document.getElementById("batch-progress-text");
+  const batchResultsSection = document.getElementById("batch-results-section");
+  const batchResultsGallery = document.getElementById("batch-results-gallery");
+  const totalProcessedCount = document.getElementById("total-processed-count");
+  const successCount = document.getElementById("success-count");
+  const failedCount = document.getElementById("failed-count");
+  const downloadAllResultsBtn = document.getElementById(
+    "download-all-results-btn"
+  );
+  const processNewBatchBtn = document.getElementById("process-new-batch-btn");
+
+  let selectedBatchFiles = [];
+  let batchSessionId = null;
+  let batchResults = [];
+
+  // Initialize batch image processing functionality
+  function initBatchImageProcessing() {
+    // Tải prompt từ localStorage nếu có
+    const savedPrompt = localStorage.getItem("geminiPrompt");
+    if (savedPrompt && geminiPromptInput) {
+      geminiPromptInput.value = savedPrompt;
+      // Kích hoạt validate để kích hoạt nút xử lý nếu đã chọn ảnh
+      validateBatchForm();
+
+      // Hiển thị thông báo nhỏ khi người dùng chuyển sang tab batch processing
+      document.querySelectorAll(".upload-tab").forEach((tab) => {
+        if (tab.getAttribute("data-tab") === "batch-images-upload") {
+          tab.addEventListener(
+            "click",
+            function () {
+              // Chỉ hiển thị thông báo khi có prompt đã lưu
+              if (savedPrompt && savedPrompt.trim().length > 0) {
+                setTimeout(() => {
+                  showToast("Đã tải prompt đã lưu trước đó");
+                }, 500);
+              }
+            },
+            { once: true }
+          ); // Chỉ kích hoạt một lần
+        }
+      });
+    }
+
+    // Handle browse button click
+    if (batchBrowseBtn) {
+      batchBrowseBtn.addEventListener("click", function () {
+        imageBatchInput.click();
+      });
+    }
+
+    // Handle file selection
+    if (imageBatchInput) {
+      imageBatchInput.addEventListener("change", function (e) {
+        handleBatchFileSelection(e.target.files);
+      });
+    }
+
+    // Handle clear selection button
+    if (clearSelectionBtn) {
+      clearSelectionBtn.addEventListener("click", function () {
+        clearBatchSelection();
+      });
+    }
+
+    // Handle prompt input change - lưu prompt vào localStorage
+    if (geminiPromptInput) {
+      geminiPromptInput.addEventListener("input", function () {
+        // Lưu prompt vào localStorage mỗi khi thay đổi
+        localStorage.setItem("geminiPrompt", geminiPromptInput.value);
+        validateBatchForm();
+      });
+    }
+
+    // Handle process button click
+    if (processImagesBtn) {
+      processImagesBtn.addEventListener("click", function () {
+        processBatchImages();
+      });
+    }
+
+    // Handle download all results button
+    if (downloadAllResultsBtn) {
+      downloadAllResultsBtn.addEventListener("click", function () {
+        downloadAllBatchResults();
+      });
+    }
+
+    // Handle download text only button
+    const downloadTextOnlyBtn = document.getElementById(
+      "download-text-only-btn"
+    );
+    if (downloadTextOnlyBtn) {
+      downloadTextOnlyBtn.addEventListener("click", function () {
+        downloadBatchResultsText();
+      });
+    }
+
+    // Handle process new batch button
+    if (processNewBatchBtn) {
+      processNewBatchBtn.addEventListener("click", function () {
+        resetBatchProcessing();
+      });
+    }
+  }
+
+  // Handle batch file selection
+  function handleBatchFileSelection(files) {
+    if (!files || files.length === 0) return;
+
+    // Filter only image files
+    const validFiles = Array.from(files).filter((file) =>
+      file.type.startsWith("image/")
+    );
+
+    if (validFiles.length === 0) {
+      showToast("Không có file ảnh hợp lệ nào được chọn");
+      return;
+    }
+
+    // Update selected files
+    selectedBatchFiles = validFiles;
+
+    // Update UI
+    selectedFilesCount.textContent = selectedBatchFiles.length;
+    selectedFilesInfo.style.display = "flex";
+
+    // Validate form
+    validateBatchForm();
+  }
+
+  // Validate batch form
+  function validateBatchForm() {
+    const isValid =
+      selectedBatchFiles.length > 0 && geminiPromptInput.value.trim() !== "";
+    processImagesBtn.disabled = !isValid;
+  }
+
+  // Clear batch selection
+  function clearBatchSelection() {
+    selectedBatchFiles = [];
+    selectedFilesInfo.style.display = "none";
+    imageBatchInput.value = "";
+    validateBatchForm();
+  }
+
+  // Process batch images
+  function processBatchImages() {
+    if (
+      selectedBatchFiles.length === 0 ||
+      geminiPromptInput.value.trim() === ""
+    ) {
+      showToast("Vui lòng chọn ảnh và nhập prompt");
+      return;
+    }
+
+    // Show progress container
+    batchProgressContainer.style.display = "block";
+
+    // Initialize variables
+    const prompt = geminiPromptInput.value.trim();
+    const totalImages = selectedBatchFiles.length;
+    let processedCount = 0;
+    const results = [];
+
+    // Tạo sessionId chỉ một lần ở đây và dùng cho tất cả các ảnh
+    batchSessionId =
+      "batch-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
+    console.log("Đã tạo batch session ID:", batchSessionId);
+
+    // Update progress text
+    batchProgressText.textContent = `Đang xử lý ảnh 1/${totalImages}...`;
+    batchProgress.style.width = "0%";
+
+    // Process images one by one with delay
+    processNextImage(0);
+
+    // Function to process images sequentially
+    function processNextImage(index) {
+      if (index >= totalImages) {
+        // All images processed
+        displayBatchResults(results, batchSessionId);
+        return;
+      }
+
+      // Update progress
+      const progressPercent = (index / totalImages) * 100;
+      batchProgress.style.width = progressPercent + "%";
+      batchProgressText.textContent = `Đang xử lý ảnh ${
+        index + 1
+      }/${totalImages}...`;
+
+      // Create form data for current image
+      const formData = new FormData();
+      formData.append("images", selectedBatchFiles[index]);
+      formData.append("prompt", prompt);
+      formData.append("session_id", batchSessionId); // Thêm session_id vào mỗi request
+
+      // Send request for current image
+      fetch("/process-images-gemini", {
+        method: "POST",
+        body: formData,
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.success) {
+            // Store the result
+            results.push(...data.results);
+            processedCount++;
+
+            // Process next image after delay
+            setTimeout(() => {
+              processNextImage(index + 1);
+            }, 5000); // 5 seconds delay
+          } else {
+            // Handle error but continue processing
+            showToast(`Lỗi xử lý ảnh ${index + 1}: ${data.error}`);
+            results.push({
+              original_image: URL.createObjectURL(selectedBatchFiles[index]),
+              success: false,
+              error: data.error,
+            });
+
+            // Process next image after delay
+            setTimeout(() => {
+              processNextImage(index + 1);
+            }, 5000); // 5 seconds delay
+          }
+        })
+        .catch((error) => {
+          console.error(`Error processing image ${index + 1}:`, error);
+          results.push({
+            original_image: URL.createObjectURL(selectedBatchFiles[index]),
+            success: false,
+            error: error.message,
+          });
+
+          // Process next image after delay
+          setTimeout(() => {
+            processNextImage(index + 1);
+          }, 5000); // 5 seconds delay
+        });
+    }
+  }
+
+  // Display batch results
+  function displayBatchResults(results, sessionId) {
+    // Hide progress container
+    batchProgressContainer.style.display = "none";
+
+    // Show results container
+    const batchResultsContainer = document.getElementById(
+      "batch-results-container"
+    );
+    if (batchResultsContainer) {
+      batchResultsContainer.style.display = "block";
+    }
+
+    // Update summary
+    const totalCount = results.length;
+    const successCount = results.filter((r) => r.success).length;
+    const failedCount = totalCount - successCount;
+
+    totalProcessedCount.textContent = totalCount;
+    successCount.textContent = successCount;
+    failedCount.textContent = failedCount;
+
+    // Store session ID for download
+    batchSessionId = sessionId;
+    batchResults = results;
+
+    // Clear previous results
+    batchResultsGallery.innerHTML = "";
+
+    // Add results to gallery
+    results.forEach((result, index) => {
+      const resultItem = document.createElement("div");
+      resultItem.className = "result-item";
+
+      let itemContent = "";
+
+      // Check if original_image is a blob URL or a server path
+      const imageSrc = result.original_image.startsWith("blob:")
+        ? result.original_image
+        : "/" + result.original_image;
+
+      itemContent += `
+        <img src="${imageSrc}" alt="Image ${index + 1}" class="result-image">
+        <div class="result-content">
+          <h4>Kết quả #${index + 1}</h4>
+      `;
+
+      if (result.success) {
+        itemContent += `
+          <div class="result-text">${result.result_text}</div>
+        `;
+      } else {
+        itemContent += `
+          <div class="error-message">
+            <i class="fas fa-exclamation-circle"></i> Lỗi: ${
+              result.error || "Không thể xử lý ảnh"
+            }
+          </div>
+        `;
+      }
+
+      itemContent += `</div>`;
+      resultItem.innerHTML = itemContent;
+      batchResultsGallery.appendChild(resultItem);
+    });
+
+    // Show summary toast
+    showToast(
+      `Đã xử lý ${totalCount} ảnh: ${successCount} thành công, ${failedCount} thất bại`
+    );
+  }
+
+  // Download all batch results
+  function downloadAllBatchResults() {
+    if (!batchSessionId) {
+      showToast("Không có kết quả để tải xuống");
+      return;
+    }
+
+    console.log("Tải xuống kết quả với session ID:", batchSessionId);
+
+    // Hiển thị thông báo đang tải
+    showToast("Đang chuẩn bị tập tin tải xuống...");
+
+    // Thực hiện yêu cầu tải xuống
+    fetch(`/download-gemini-results/${batchSessionId}`)
+      .then((response) => {
+        if (!response.ok) {
+          if (response.status === 400) {
+            throw new Error("Session ID không hợp lệ");
+          } else if (response.status === 404) {
+            throw new Error("Không tìm thấy dữ liệu cho session này");
+          } else {
+            throw new Error(
+              `Lỗi server: ${response.status} ${response.statusText}`
+            );
+          }
+        }
+        return response.blob();
+      })
+      .then((blob) => {
+        // Tạo URL và tải xuống
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = url;
+        a.download = `gemini_results_${batchSessionId}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        showToast(
+          "Đã tải xuống tập tin chứa tất cả ảnh và file prompt thành công"
+        );
+      })
+      .catch((error) => {
+        console.error("Lỗi khi tải xuống:", error);
+        showToast(`Lỗi khi tải xuống: ${error.message}`);
+      });
+  }
+
+  // Reset batch processing
+  function resetBatchProcessing() {
+    clearBatchSelection();
+    // Không xóa giá trị prompt để giữ nguyên cho lần sau
+    // geminiPromptInput.value = '';
+    const batchResultsContainer = document.getElementById(
+      "batch-results-container"
+    );
+    if (batchResultsContainer) {
+      batchResultsContainer.style.display = "none";
+    }
+    validateBatchForm();
+    batchSessionId = null;
+    batchResults = [];
+  }
+
+  // Initialize batch image processing
+  initBatchImageProcessing();
+
+  // Download batch results as a single text file
+  function downloadBatchResultsText() {
+    if (!batchSessionId) {
+      showToast("Không có kết quả để tải xuống");
+      return;
+    }
+
+    console.log("Tải xuống kết quả dạng text với session ID:", batchSessionId);
+
+    // Hiển thị thông báo đang tải
+    showToast("Đang chuẩn bị file prompt...");
+
+    // Thực hiện yêu cầu tải xuống
+    fetch(`/download-gemini-results-text/${batchSessionId}`)
+      .then((response) => {
+        if (!response.ok) {
+          if (response.status === 400) {
+            throw new Error("Session ID không hợp lệ");
+          } else if (response.status === 404) {
+            throw new Error("Không tìm thấy dữ liệu cho session này");
+          } else {
+            throw new Error(
+              `Lỗi server: ${response.status} ${response.statusText}`
+            );
+          }
+        }
+        return response.blob();
+      })
+      .then((blob) => {
+        // Tạo URL và tải xuống
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = url;
+        a.download = `prompts_${batchSessionId}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        showToast("Đã tải xuống file prompt thành công");
+      })
+      .catch((error) => {
+        console.error("Lỗi khi tải xuống file text:", error);
+        showToast(`Lỗi khi tải xuống: ${error.message}`);
+      });
+  }
+
+  // Lắng nghe sự kiện cho các tab tải lên
+  uploadTabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      // Loại bỏ class active từ tất cả tab
+      uploadTabs.forEach(function (t) {
+        t.classList.remove("active");
+      });
+
+      // Thêm class active cho tab được chọn
+      this.classList.add("active");
+
+      // Lấy data-tab để xác định nội dung nào hiển thị
+      const tabId = this.getAttribute("data-tab");
+
+      // Ẩn tất cả nội dung tải lên
+      uploadContents.forEach(function (content) {
+        content.style.display = "none";
+      });
+
+      // Hiển thị nội dung tương ứng
+      document.getElementById(tabId).style.display = "block";
+
+      // Cập nhật biến theo dõi phương pháp tải lên đang được chọn
+      activeUploadMethod = tabId;
+
+      // Cập nhật UI dựa trên tab được chọn
+      updateUIForSelectedTab(tabId);
+    });
+  });
+
+  // Cập nhật UI dựa trên tab được chọn
+  function updateUIForSelectedTab(tabId) {
+    // Hiển thị/ẩn các phần UI dựa trên tab
+    const videoMethodSelection = document.querySelector(".method-selection");
+    const videoSettings = document.getElementById("video-processing-settings");
+    const extractBtn = document.getElementById("extract-btn");
+
+    if (tabId === "batch-images-upload") {
+      // Nếu là tab xử lý batch ảnh, ẩn các phần liên quan đến video
+      videoMethodSelection.style.display = "none";
+      videoSettings.style.display = "none";
+      extractBtn.style.display = "none";
+    } else {
+      // Nếu là các tab video, hiển thị các phần liên quan
+      videoMethodSelection.style.display = "block";
+      videoSettings.style.display = "block";
+      extractBtn.style.display = "block";
+    }
+  }
+
+  // Gọi hàm updateUIForSelectedTab ban đầu cho tab đang active
+  updateUIForSelectedTab(activeUploadMethod);
 });

@@ -1,0 +1,558 @@
+openapi: 3.0.0
+info:
+  title: Video Processing API
+  description: |
+    API for extracting keyframes, analyzing video content, and generating insights from videos.
+    This API provides multiple methods for video processing including transition detection, scene detection, and Azure Video Indexer integration.
+  version: 1.0.0
+  contact:
+    email: support@example.com
+
+servers:
+  - url: http://127.0.0.1:5000
+    description: Default server
+
+tags:
+  - name: Video Processing
+    description: Video upload and keyframe extraction
+  - name: Keyframe Management
+    description: Operations for managing extracted keyframes
+  - name: Content Generation
+    description: Generate content based on extracted keyframes
+  - name: Azure Integration
+    description: Azure Video Indexer integration
+
+paths:
+  /upload-method1:
+    post:
+      tags:
+        - Video Processing
+      summary: Upload and process video using Method 1
+      description: Upload a video file or provide a URL to extract keyframes using the frame difference method
+      operationId: uploadVideoMethod1
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                video:
+                  type: string
+                  format: binary
+                  description: Video file to upload
+                video_url:
+                  type: string
+                  description: URL to YouTube or TikTok video (alternative to file upload)
+                threshold:
+                  type: integer
+                  default: 30
+                  description: Threshold for detecting changes between frames
+                max_frames:
+                  type: integer
+                  default: 20
+                  description: Maximum number of keyframes to extract
+                extract_audio:
+                  type: boolean
+                  default: false
+                  description: Whether to extract and transcribe audio
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id:
+                    type: string
+                  keyframes:
+                    type: array
+                    items:
+                      type: object
+                  filename:
+                    type: string
+                  method:
+                    type: string
+                    enum: [frame_difference]
+        "400":
+          description: Invalid input
+        "500":
+          description: Server error
+
+  /upload-method2:
+    post:
+      tags:
+        - Video Processing
+      summary: Upload and process video using Method 2
+      description: Upload a video file or provide a URL to extract keyframes using the transition detection method
+      operationId: uploadVideoMethod2
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                video:
+                  type: string
+                  format: binary
+                  description: Video file to upload
+                video_url:
+                  type: string
+                  description: URL to YouTube or TikTok video (alternative to file upload)
+                threshold:
+                  type: integer
+                  default: 30
+                  description: Threshold for detecting changes between frames
+                max_frames:
+                  type: integer
+                  default: 20
+                  description: Maximum number of keyframes to extract
+                min_scene_length:
+                  type: integer
+                  default: 15
+                  description: Minimum length of scenes
+                extract_audio:
+                  type: boolean
+                  default: false
+                  description: Whether to extract and transcribe audio
+                transition_threshold:
+                  type: number
+                  format: float
+                  default: 0.4
+                  description: Threshold for transition detection (0.0-1.0)
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id:
+                    type: string
+                  keyframes:
+                    type: array
+                    items:
+                      type: object
+                  filename:
+                    type: string
+                  method:
+                    type: string
+                    enum: [transition_aware]
+        "400":
+          description: Invalid input
+        "500":
+          description: Server error
+
+  /delete-keyframe:
+    post:
+      tags:
+        - Keyframe Management
+      summary: Delete a keyframe
+      description: Delete a specific keyframe from the session
+      operationId: deleteKeyframe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - frame_path
+                - session_id
+                - frame_id
+              properties:
+                frame_path:
+                  type: string
+                  description: Path to the frame to delete
+                session_id:
+                  type: string
+                  description: Session ID
+                frame_id:
+                  type: string
+                  description: Frame ID
+      responses:
+        "200":
+          description: Successful operation
+        "400":
+          description: Invalid input
+        "404":
+          description: Frame not found
+        "500":
+          description: Server error
+
+  /remove-duplicates:
+    post:
+      tags:
+        - Keyframe Management
+      summary: Remove duplicate keyframes
+      description: Remove all duplicate keyframes from the session
+      operationId: removeDuplicates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+              properties:
+                session_id:
+                  type: string
+                  description: Session ID
+                duplicate_frames:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      path:
+                        type: string
+                      id:
+                        type: string
+      responses:
+        "200":
+          description: Successful operation
+        "400":
+          description: Invalid input
+        "500":
+          description: Server error
+
+  /analyze-frame-differences:
+    post:
+      tags:
+        - Keyframe Management
+      summary: Analyze frame differences
+      description: Analyze differences between frames to identify similar frames
+      operationId: analyzeFrameDifferences
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+              properties:
+                session_id:
+                  type: string
+                  description: Session ID
+                difference_threshold:
+                  type: number
+                  format: float
+                  default: 0.3
+                  description: Threshold for determining similar frames (0.0-1.0)
+      responses:
+        "200":
+          description: Successful operation
+        "400":
+          description: Invalid input
+        "500":
+          description: Server error
+
+  /remove-similar-frames:
+    post:
+      tags:
+        - Keyframe Management
+      summary: Remove similar frames
+      description: Remove frames that are similar to other frames
+      operationId: removeSimilarFrames
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+              properties:
+                session_id:
+                  type: string
+                  description: Session ID
+                similar_frames:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      path:
+                        type: string
+                      id:
+                        type: string
+      responses:
+        "200":
+          description: Successful operation
+        "400":
+          description: Invalid input
+        "500":
+          description: Server error
+
+  /generate-script:
+    post:
+      tags:
+        - Content Generation
+      summary: Generate script from keyframes
+      description: Generate a descriptive script based on the extracted keyframes
+      operationId: generateScript
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+                  description: Session ID
+                keyframes_data:
+                  type: array
+                  items:
+                    type: object
+                  description: Keyframes data (alternative to session_id)
+                transcript_text:
+                  type: string
+                  description: Transcript text (optional)
+                temperature:
+                  type: number
+                  format: float
+                  default: 0.9
+                  description: Temperature for text generation (0.0-1.0)
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  script:
+                    type: string
+                  prompt:
+                    type: string
+                  num_frames_analyzed:
+                    type: integer
+                  temperature:
+                    type: number
+                  has_transcript:
+                    type: boolean
+        "400":
+          description: Invalid input
+        "429":
+          description: API rate limit exceeded
+        "500":
+          description: Server error
+
+  /generate-image:
+    post:
+      tags:
+        - Content Generation
+      summary: Generate image from keyframe
+      description: Generate a new image based on a keyframe using Gemini API
+      operationId: generateImage
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - keyframe_path
+                - session_id
+              properties:
+                keyframe_path:
+                  type: string
+                  description: Path to the keyframe
+                session_id:
+                  type: string
+                  description: Session ID
+                prompt:
+                  type: string
+                  default: "Create a new version of this image"
+                  description: Prompt for image generation
+                style:
+                  type: string
+                  default: "digital art"
+                  description: Style for the generated image
+      responses:
+        "200":
+          description: Successful operation
+        "400":
+          description: Invalid input
+        "429":
+          description: API rate limit exceeded
+        "500":
+          description: Server error
+
+  /download/{session_id}:
+    get:
+      tags:
+        - Keyframe Management
+      summary: Download keyframes
+      description: Get a list of paths to the extracted keyframes
+      operationId: downloadKeyframes
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Session ID
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      type: string
+        "404":
+          description: Session not found
+
+  /download-transcript/{session_id}:
+    get:
+      tags:
+        - Keyframe Management
+      summary: Download transcript
+      description: Get the transcript for a video
+      operationId: downloadTranscript
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Session ID
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transcript:
+                    type: string
+                  file_path:
+                    type: string
+        "404":
+          description: Transcript not found
+
+  /test-azure-connection:
+    post:
+      tags:
+        - Azure Integration
+      summary: Test Azure Video Indexer connection
+      description: Test connection to Azure Video Indexer by attempting to get an access token
+      operationId: testAzureConnection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  description: Azure Video Indexer API key
+                account_id:
+                  type: string
+                  description: Azure Video Indexer account ID
+                location:
+                  type: string
+                  default: "trial"
+                  description: Azure Video Indexer location
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  videos_count:
+                    type: integer
+                  location:
+                    type: string
+                  account_id:
+                    type: string
+        "400":
+          description: Invalid input or missing credentials
+        "500":
+          description: Server error or connection failed
+
+  /process-video-azure:
+    post:
+      tags:
+        - Azure Integration
+      summary: Process video with Azure
+      description: Process a video using Azure Video Indexer
+      operationId: processVideoAzure
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                video:
+                  type: string
+                  format: binary
+                  description: Video file to upload
+                video_url:
+                  type: string
+                  description: URL to YouTube or TikTok video (alternative to file upload)
+                api_key:
+                  type: string
+                  description: Azure Video Indexer API key
+                account_id:
+                  type: string
+                  description: Azure Video Indexer account ID
+                location:
+                  type: string
+                  default: "trial"
+                  description: Azure Video Indexer location
+                language:
+                  type: string
+                  default: "vi-VN"
+                  description: Language for speech recognition
+                force_upload:
+                  type: boolean
+                  default: false
+                  description: Force upload even if video exists
+                use_existing_analysis:
+                  type: boolean
+                  default: true
+                  description: Use existing analysis if available
+                extract_audio:
+                  type: boolean
+                  default: true
+                  description: Extract audio using local methods
+                save_images:
+                  type: boolean
+                  default: true
+                  description: Save extracted images
+      responses:
+        "200":
+          description: Successful operation
+        "400":
+          description: Invalid input
+        "500":
+          description: Server error
+
+components:
+  schemas:
+    KeyframeInfo:
+      type: object
+      properties:
+        path:
+          type: string
+        frame_number:
+          type: integer
+        timestamp:
+          type: number
+        diff_value:
+          type: number
+        id:
+          type: string
+        is_duplicate:
+          type: boolean
+        is_transition:
+          type: boolean

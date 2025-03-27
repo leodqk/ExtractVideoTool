@@ -1,0 +1,364 @@
+/* Azure.css - Custom styles for Azure Video Indexer integration */
+
+:root {
+  --azure-blue: #0078d4;
+  --azure-light-blue: #50a0dc;
+  --azure-dark-blue: #106ebe;
+  --azure-bg-light: #f0f5ff;
+  --azure-border: #d0e1ff;
+}
+
+/* Azure method styling */
+.method-option[data-method="azure"] .method-icon {
+  color: var(--azure-blue);
+}
+
+.method-option[data-method="azure"].active {
+  border-color: var(--azure-blue);
+  background-color: var(--azure-bg-light);
+}
+
+.method-option[data-method="azure"].active .method-icon {
+  background-color: var(--azure-blue);
+  color: white;
+}
+
+/* Azure settings section */
+.azure-setting {
+  background-color: var(--light-gray);
+  border: 1px solid var(--azure-border);
+  border-radius: 10px;
+}
+
+.azure-setting h4 {
+  color: var(--primary-color);
+  border-bottom: 1px solid var(--azure-border);
+}
+
+/* Azure frame styling */
+.keyframe.azure-shot {
+  border-color: var(--azure-blue);
+  background-color: rgba(0, 120, 212, 0.05);
+}
+
+.keyframe.azure-shot .scene-label {
+  background-color: var(--azure-blue);
+}
+
+/* Azure transcript styling */
+.azure-transcript-section {
+  background-color: var(--azure-bg-light);
+  border: 1px solid var(--azure-border);
+  border-radius: 10px;
+  padding: 20px;
+  margin: 25px 0;
+}
+
+.azure-transcript-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  color: var(--azure-blue);
+  border-bottom: 1px solid var(--azure-border);
+  padding-bottom: 10px;
+}
+
+.azure-transcript-header i {
+  font-size: 1.2rem;
+}
+
+.azure-transcript-content {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 15px;
+  background-color: white;
+  border-radius: 8px;
+  border: 1px solid var(--azure-border);
+}
+
+.azure-transcript-block {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--azure-border);
+}
+
+.azure-transcript-block:last-child {
+  border-bottom: none;
+}
+
+.azure-transcript-time {
+  color: var(--azure-blue);
+  font-weight: 500;
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+}
+
+.azure-transcript-speaker {
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+/* Azure actions */
+.azure-btn {
+  background-color: var(--azure-blue);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.azure-btn:hover {
+  background-color: var(--azure-dark-blue);
+}
+
+/* Azure progress */
+.azure-progress-container {
+  background-color: var(--azure-bg-light);
+  padding: 20px;
+  border-radius: 10px;
+  margin: 20px 0;
+  border: 1px solid var(--azure-border);
+}
+
+.azure-progress-bar {
+  height: 10px;
+  background-color: #e0e0e0;
+  border-radius: 5px;
+  margin: 15px 0;
+  overflow: hidden;
+}
+
+.azure-progress {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--azure-blue),
+    var(--azure-light-blue)
+  );
+  width: 0%;
+  transition: width 0.5s;
+}
+
+.azure-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--azure-blue);
+  font-weight: 500;
+}
+
+.azure-status i {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Azure Gallery Section Header */
+.gallery-section-header {
+  color: var(--azure-blue);
+  margin: 20px 0 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--azure-border);
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Azure Scene and Shot Items */
+.azure-scene,
+.azure-shot {
+  border-color: var(--azure-blue);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.azure-scene:hover,
+.azure-shot:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 120, 212, 0.15);
+}
+
+.azure-scene .scene-label,
+.azure-shot .scene-label {
+  background-color: var(--azure-blue);
+}
+
+/* Azure Results Page */
+.azure-results-header {
+  background-color: var(--azure-bg-light);
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 25px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border: 1px solid var(--azure-border);
+}
+
+.azure-results-header .azure-logo {
+  color: var(--azure-blue);
+  font-size: 2rem;
+}
+
+.azure-results-header .azure-info {
+  flex: 1;
+}
+
+.azure-results-header h3 {
+  color: var(--azure-blue);
+  margin-bottom: 10px;
+  border-bottom: none;
+}
+
+.azure-results-header p {
+  margin-bottom: 5px;
+  color: var(--text-light);
+}
+
+/* Azure Insights Section */
+.azure-insights {
+  background-color: var(--azure-bg-light);
+  padding: 20px;
+  border-radius: 10px;
+  margin: 20px 0;
+  border: 1px solid var(--azure-border);
+}
+
+.azure-insights h4 {
+  color: var(--azure-blue);
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--azure-border);
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.azure-insights-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.azure-insight-tag {
+  background-color: white;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  border: 1px solid var(--azure-border);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.azure-insight-tag i {
+  color: var(--azure-blue);
+}
+
+/* Azure Video Player */
+.azure-video-player {
+  margin: 20px 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Azure Confidence Labels */
+.confidence-high {
+  color: var(--success-color);
+}
+
+.confidence-medium {
+  color: var(--warning-color);
+}
+
+.confidence-low {
+  color: var(--error-color);
+}
+
+/* Azure Topic Timeline */
+.azure-timeline {
+  margin: 25px 0;
+  position: relative;
+  padding-left: 20px;
+}
+
+.azure-timeline::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: var(--azure-border);
+}
+
+.azure-timeline-item {
+  position: relative;
+  margin-bottom: 20px;
+  padding-left: 20px;
+}
+
+.azure-timeline-item::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--azure-blue);
+  border: 3px solid white;
+  box-shadow: 0 0 0 1px var(--azure-border);
+}
+
+.azure-timeline-time {
+  font-size: 0.9rem;
+  color: var(--azure-blue);
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+.azure-timeline-content {
+  background-color: white;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid var(--azure-border);
+}
+
+/* Azure Modal */
+.azure-modal .modal-header {
+  background-color: var(--azure-blue);
+  color: white;
+}
+
+.azure-modal .modal-header h3 {
+  color: white;
+}
+
+.azure-modal .close-btn {
+  color: white;
+}
+
+.azure-modal .modal-footer button {
+  background-color: var(--azure-blue);
+}
+
+.azure-modal .modal-footer button:hover {
+  background-color: var(--azure-dark-blue);
+}
