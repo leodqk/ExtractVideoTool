@@ -4106,12 +4106,152 @@ document.addEventListener("DOMContentLoaded", function () {
   function handleBatchFileSelection(files) {
     if (!files || files.length === 0) return;
 
-    // Filter only image files
-    const validFiles = Array.from(files).filter((file) =>
-      file.type.startsWith("image/")
-    );
+    // Show loading message
+    showToast("Đang xử lý các tệp đã chọn...");
 
-    if (validFiles.length === 0) {
+    // Array to store all valid image files
+    let allValidFiles = [];
+    let pendingFiles = Array.from(files).length;
+
+    // Process each file
+    Array.from(files).forEach((file) => {
+      // Check if file is a compressed archive
+      if (file.name.match(/\.(zip|rar|7z)$/i)) {
+        processCompressedFile(file)
+          .then((extractedImages) => {
+            if (extractedImages.length > 0) {
+              allValidFiles = allValidFiles.concat(extractedImages);
+              showToast(
+                `Đã giải nén ${extractedImages.length} ảnh từ ${file.name}`
+              );
+            } else {
+              showToast(`Không tìm thấy ảnh trong ${file.name}`);
+            }
+
+            // Check if all files have been processed
+            pendingFiles--;
+            if (pendingFiles === 0) {
+              updateSelectedFiles(allValidFiles);
+            }
+          })
+          .catch((error) => {
+            console.error("Error extracting archive:", error);
+            showToast(`Lỗi khi giải nén ${file.name}: ${error.message}`);
+
+            pendingFiles--;
+            if (pendingFiles === 0) {
+              updateSelectedFiles(allValidFiles);
+            }
+          });
+      } else if (file.type.startsWith("image/")) {
+        // It's an image file, add directly
+        allValidFiles.push(file);
+
+        pendingFiles--;
+        if (pendingFiles === 0) {
+          updateSelectedFiles(allValidFiles);
+        }
+      } else {
+        // Not a supported file, skip
+        pendingFiles--;
+        if (pendingFiles === 0) {
+          updateSelectedFiles(allValidFiles);
+        }
+      }
+    });
+  }
+
+  // Function to process a compressed file and extract images
+  function processCompressedFile(file) {
+    return new Promise((resolve, reject) => {
+      const zip = new JSZip();
+      const reader = new FileReader();
+
+      reader.onload = function (e) {
+        // Load the archive content
+        zip
+          .loadAsync(e.target.result)
+          .then(function (archive) {
+            const extractedImages = [];
+            const imageMimeTypes = {
+              jpg: "image/jpeg",
+              jpeg: "image/jpeg",
+              png: "image/png",
+              gif: "image/gif",
+              bmp: "image/bmp",
+              webp: "image/webp",
+            };
+
+            // Get all entries (files and folders)
+            const entries = [];
+            archive.forEach((relativePath, zipEntry) => {
+              entries.push(zipEntry);
+            });
+
+            // Track the number of pending file extractions
+            let pendingExtractions = 0;
+
+            // Look for image files
+            entries.forEach((zipEntry) => {
+              if (!zipEntry.dir) {
+                const extension = zipEntry.name.split(".").pop().toLowerCase();
+                if (imageMimeTypes[extension]) {
+                  pendingExtractions++;
+
+                  // Extract the file content
+                  zipEntry
+                    .async("blob")
+                    .then((blob) => {
+                      // Convert blob to File object with appropriate type
+                      const imageFile = new File(
+                        [blob],
+                        zipEntry.name.split("/").pop(),
+                        { type: imageMimeTypes[extension] }
+                      );
+
+                      extractedImages.push(imageFile);
+
+                      pendingExtractions--;
+                      if (pendingExtractions === 0) {
+                        resolve(extractedImages);
+                      }
+                    })
+                    .catch((error) => {
+                      console.error(
+                        `Error extracting ${zipEntry.name}:`,
+                        error
+                      );
+                      pendingExtractions--;
+                      if (pendingExtractions === 0) {
+                        resolve(extractedImages);
+                      }
+                    });
+                }
+              }
+            });
+
+            // If no image files found to extract
+            if (pendingExtractions === 0) {
+              resolve(extractedImages);
+            }
+          })
+          .catch(function (error) {
+            reject(error);
+          });
+      };
+
+      reader.onerror = function (error) {
+        reject(error);
+      };
+
+      // Read the file as an ArrayBuffer
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  // Update selected files in the UI
+  function updateSelectedFiles(validFiles) {
+    if (!validFiles || validFiles.length === 0) {
       showToast("Không có file ảnh hợp lệ nào được chọn");
       return;
     }
