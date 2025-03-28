@@ -94,6 +94,13 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!exists) {
       // Thêm thuộc tính order dựa trên vị trí hiện tại trong hàng đợi
       imageData.order = imageQueue.length;
+      // Ghi log thông tin keyframe nếu có
+      if (imageData.keyframe) {
+        console.log(
+          "Đã thêm ảnh vào hàng đợi với keyframe:",
+          imageData.keyframe
+        );
+      }
       imageQueue.push(imageData);
       showToast(`Đã thêm ảnh vào hàng đợi (${imageQueue.length} ảnh)`);
       updateQueueButton();
@@ -121,7 +128,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const modalOverlay = document.createElement("div");
     modalOverlay.className = "modal-overlay";
 
-    // Tạo nội dung modal
     const modal = document.createElement("div");
     modal.className = "modal image-queue-modal";
 
@@ -164,6 +170,15 @@ document.addEventListener("DOMContentLoaded", function () {
               <button class="download-queue-image-btn" data-index="${index}">
                 <i class="fas fa-download"></i> Tải xuống
               </button>
+              ${
+                image.keyframe
+                  ? `
+              <button class="recreate-queue-image-btn" data-index="${index}">
+                <i class="fas fa-sync-alt"></i> Tạo lại ảnh
+              </button>
+              `
+                  : ""
+              }
               <button class="remove-queue-image-btn" data-index="${index}">
                 <i class="fas fa-trash-alt"></i>
               </button>
@@ -222,6 +237,79 @@ document.addEventListener("DOMContentLoaded", function () {
         btn.addEventListener("click", function () {
           const index = parseInt(this.dataset.index);
           downloadImage(imageQueue[index].url);
+        });
+      });
+
+      // Sự kiện tạo lại ảnh
+      const recreateBtns = modal.querySelectorAll(".recreate-queue-image-btn");
+      recreateBtns.forEach((btn) => {
+        btn.addEventListener("click", function () {
+          const index = parseInt(this.dataset.index);
+          const image = imageQueue[index];
+
+          if (image.keyframe) {
+            // Hiển thị loading overlay trên ảnh
+            const imageItem = btn.closest(".queue-image-item");
+            const imgContainer = imageItem.querySelector(
+              ".queue-image-container"
+            );
+
+            // Thêm lớp loading và loading spinner
+            imgContainer.classList.add("loading");
+            const loadingOverlay = document.createElement("div");
+            loadingOverlay.className = "image-loading-overlay";
+            loadingOverlay.innerHTML =
+              '<i class="fas fa-spinner fa-spin"></i><p>Đang tạo lại ảnh...</p>';
+            imgContainer.appendChild(loadingOverlay);
+
+            // Disable button khi đang xử lý
+            btn.disabled = true;
+            btn.innerHTML =
+              '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+
+            // Lấy đường dẫn keyframe
+            const keyframePath =
+              typeof image.keyframe === "string"
+                ? image.keyframe
+                : image.keyframe.path;
+
+            // Tạo ảnh mới từ keyframe này
+            generateGeminiPromptAndImage(keyframePath)
+              .then((result) => {
+                if (result && result.url) {
+                  // Cập nhật ảnh trong hàng đợi
+                  image.url = result.url;
+                  image.prompt = result.prompt;
+                  image.timestamp = Date.now();
+
+                  // Cập nhật ảnh hiển thị
+                  const imgElement = imgContainer.querySelector("img");
+                  imgElement.src = result.url;
+
+                  // Hiển thị toast thành công
+                  showToast("Đã tạo lại ảnh thành công!");
+                }
+              })
+              .catch((error) => {
+                console.error("Lỗi khi tạo lại ảnh:", error);
+                showToast("Lỗi khi tạo lại ảnh: " + error.message);
+              })
+              .finally(() => {
+                // Xóa loading overlay
+                imgContainer.classList.remove("loading");
+                if (loadingOverlay && loadingOverlay.parentNode) {
+                  loadingOverlay.parentNode.removeChild(loadingOverlay);
+                }
+
+                // Khôi phục nút
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt"></i> Tạo lại ảnh';
+              });
+          } else {
+            showToast(
+              "Không thể tạo lại ảnh này vì không có thông tin khung hình gốc"
+            );
+          }
         });
       });
 
@@ -1375,6 +1463,10 @@ document.addEventListener("DOMContentLoaded", function () {
         imgElement.addEventListener("click", function () {
           // Instead of opening in a new tab, show in a modal with download options
           const imgSrc = this.src;
+          const frameId = keyframeElement.dataset.frameId;
+          const keyframeInfo = keyframesData.find(
+            (frame) => frame.id === frameId
+          );
 
           // Create a modal to show the full image with download options
           const modal = document.createElement("div");
@@ -1393,6 +1485,9 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="modal-footer">
                 <button class="download-image-modal-btn">
                   <i class="fas fa-download"></i> Tải xuống
+                </button>
+                <button class="add-to-queue-modal-btn">
+                  <i class="fas fa-layer-group"></i> Lưu vào hàng đợi
                 </button>
                 <button class="save-folder-modal-btn">
                   <i class="fas fa-folder"></i> Lưu vào thư mục
@@ -1435,6 +1530,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 url: imgSrc,
                 prompt: data.prompt,
                 timestamp: Date.now(),
+                keyframe: keyframeInfo,
               });
             });
         });
@@ -1695,6 +1791,10 @@ document.addEventListener("DOMContentLoaded", function () {
           .addEventListener("click", function () {
             // Instead of opening in a new tab, show in a modal with download options
             const imgSrc = this.src;
+            const frameId = keyframeElement.dataset.frameId;
+            const keyframeInfo = keyframesData.find(
+              (frame) => frame.id === frameId
+            );
 
             // Create a modal to show the full image with download options
             const modal = document.createElement("div");
@@ -1751,10 +1851,19 @@ document.addEventListener("DOMContentLoaded", function () {
             modal
               .querySelector(".add-to-queue-modal-btn")
               .addEventListener("click", function () {
+                // Find the keyframe info if this image was generated from a keyframe
+                let keyframeInfo = null;
+                if (image.keyframe) {
+                  keyframeInfo = image.keyframe;
+                } else if (image.source_keyframe) {
+                  keyframeInfo = image.source_keyframe;
+                }
+
                 addToImageQueue({
                   url: imgSrc,
                   prompt: data.prompt,
                   timestamp: Date.now(),
+                  keyframe: keyframeInfo,
                 });
               });
           });
@@ -2207,10 +2316,15 @@ document.addEventListener("DOMContentLoaded", function () {
           .querySelector(".add-to-queue-btn")
           .addEventListener("click", function () {
             const path = this.dataset.path;
+            // Find the corresponding keyframe if this image was generated from a keyframe
+            const correspondingKeyframe =
+              image.keyframe || image.sourceKeyframe;
+
             addToImageQueue({
               url: path,
               prompt: data.prompt,
               timestamp: Date.now(),
+              keyframe: correspondingKeyframe,
             });
           });
 
@@ -2833,6 +2947,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         url: image.url,
                         prompt: result.prompt,
                         timestamp: Date.now(),
+                        keyframe: framePath,
                       });
                     });
 
@@ -3070,6 +3185,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         url: image.url,
                         prompt: result.prompt,
                         timestamp: Date.now(),
+                        keyframe: framePath,
                       });
                     });
 
@@ -3332,11 +3448,15 @@ document.addEventListener("DOMContentLoaded", function () {
         let queuedCount = 0;
         generatedImages.forEach((image, idx) => {
           setTimeout(() => {
+            // Ensure we have a reference to the original keyframe
+            const keyframeInfo = image.sourceKeyframe || image.keyframe;
+
             addToImageQueue({
               url: image.url,
               prompt: image.prompt,
               timestamp: Date.now(),
               order: idx,
+              keyframe: keyframeInfo,
             });
 
             queuedCount++;
@@ -3386,7 +3506,15 @@ document.addEventListener("DOMContentLoaded", function () {
       generateGeminiPromptAndImage(framePath)
         .then((result) => {
           if (result && result.url) {
-            generatedImages.push(result);
+            generatedImages.push({
+              ...result,
+              keyframe: framePath,
+              sourceKeyframe: keyframesData.find(
+                (frame) =>
+                  frame.path === framePath ||
+                  normalizeImagePath(frame.path) === framePath
+              ),
+            });
           }
 
           // Xử lý khung hình tiếp theo
