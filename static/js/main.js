@@ -1160,176 +1160,56 @@ document.addEventListener("DOMContentLoaded", function () {
     const isYouTube = data.video_source === "YouTube";
     const isTikTok = data.video_source === "TikTok";
 
-    let videoInfoHTML = `
-          <h4><i class="fas fa-info-circle"></i> Thông tin video</h4>
-          <p><strong>Tên file:</strong> ${data.filename}</p>
-          <p><strong>Thời lượng:</strong> ${minutes}:${
-      seconds < 10 ? "0" + seconds : seconds
-    }</p>
-          <p><strong>Kích thước:</strong> ${data.width} x ${data.height}</p>
-          <p><strong>Tổng số khung hình:</strong> ${data.total_frames}</p>
-          <p><strong>FPS:</strong> ${data.fps.toFixed(2)}</p>
-        `;
+    // Display video info
+    videoInfo.innerHTML = `
+      <div class="video-details">
+        <h3>${data.filename || "Video"}</h3>
+        <p>
+          <i class="fas fa-clock"></i> Thời lượng: ${minutes}:${seconds
+      .toString()
+      .padStart(2, "0")} | <i class="fas fa-film"></i> ${
+      data.total_frames
+    } khung hình | <i class="fas fa-video"></i> ${data.width}x${
+      data.height
+    } | <i class="fas fa-tachometer-alt"></i> ${data.fps.toFixed(2)} FPS
+        </p>
+        ${
+          isYouTube || isTikTok
+            ? `<p><i class="fas fa-link"></i> Nguồn: <a href="${
+                data.video_url
+              }" target="_blank">${data.video_title || data.video_url}</a></p>`
+            : ""
+        }
+      </div>
+    `;
 
-    if (isYouTube) {
-      videoInfoHTML += `
-            <div class="youtube-info">
-              <div class="youtube-icon">
-                <i class="fab fa-youtube"></i>
-              </div>
-              <div>
-                <p><strong>Nguồn:</strong> YouTube</p>
-                ${
-                  data.video_title
-                    ? `<p><strong>Tiêu đề:</strong> ${data.video_title}</p>`
-                    : ""
-                }
-              </div>
-            </div>
-          `;
-    } else if (isTikTok) {
-      videoInfoHTML += `
-            <div class="tiktok-info">
-              <div class="tiktok-icon">
-                <i class="fab fa-tiktok"></i>
-              </div>
-              <div>
-                <p><strong>Nguồn:</strong> TikTok</p>
-                ${
-                  data.video_title
-                    ? `<p><strong>Tiêu đề:</strong> ${data.video_title}</p>`
-                    : ""
-                }
-              </div>
-            </div>
-          `;
+    // Display method info
+    methodInfo.innerHTML = `
+      <div class="method-details">
+        <h3>Phương pháp trích xuất</h3>
+        <p>
+          <i class="fas fa-cog"></i> Phương pháp: ${
+            data.method === "frame_difference"
+              ? "Dựa trên độ khác biệt"
+              : data.method === "scene_detection"
+              ? "Dựa trên phát hiện cảnh"
+              : "Dựa trên phát hiện transition"
+          }
+        </p>
+        <p>
+          <i class="fas fa-sliders-h"></i> Ngưỡng: ${
+            data.threshold || 30
+          } | <i class="fas fa-image"></i> Số khung hình: ${
+      data.keyframes.length
     }
+        </p>
+      </div>
+    `;
 
-    videoInfo.innerHTML = videoInfoHTML;
-
-    // Update method info with icons
-    if (data.method === "frame_difference") {
-      methodInfo.innerHTML = `
-            <h4><i class="fas fa-chart-line"></i> Phương pháp trích xuất</h4>
-            <p><strong>Phương pháp:</strong> Phân tích sự thay đổi giữa các khung hình</p>
-            <p><strong>Ngưỡng phát hiện:</strong> ${thresholdSlider.value}</p>
-            <p><strong>Số khung hình đã trích xuất:</strong> ${data.keyframes.length}</p>
-          `;
-
-      // Hiển thị thông tin về ngưỡng độ khác biệt
-      if (data.difference_threshold) {
-        methodInfo.innerHTML += `
-              <p><strong>Ngưỡng độ khác biệt:</strong> ${data.difference_threshold}</p>
-            `;
-      }
-
-      scenesInfo.style.display = "none";
-    } else if (data.method === "scene_detection") {
-      methodInfo.innerHTML = `
-            <h4><i class="fas fa-film"></i> Phương pháp trích xuất</h4>
-            <p><strong>Phương pháp:</strong> Phát hiện chuyển cảnh</p>
-            <p><strong>Ngưỡng phát hiện:</strong> ${thresholdSlider.value}</p>
-            <p><strong>Độ dài tối thiểu cảnh:</strong> ${
-              minSceneLengthInput.value
-            } frames</p>
-            <p><strong>Số cảnh đã phát hiện:</strong> ${
-              data.scenes ? data.scenes.length : 0
-            }</p>
-          `;
-
-      // Hiển thị thông tin về ngưỡng độ khác biệt
-      if (data.difference_threshold) {
-        methodInfo.innerHTML += `
-              <p><strong>Ngưỡng độ khác biệt:</strong> ${data.difference_threshold}</p>
-            `;
-      }
-
-      // Display scenes info
-      if (data.scenes && data.scenes.length > 0) {
-        let sceneListHTML = "";
-        data.scenes.forEach((scene, index) => {
-          const startTime = formatTime(scene.start / data.fps);
-          const endTime = formatTime(scene.end / data.fps);
-          sceneListHTML += `
-                <div class="scene-item">
-                  <i class="fas fa-film"></i> <strong>Cảnh ${
-                    index + 1
-                  }:</strong> 
-                  Từ ${startTime} đến ${endTime} 
-                  (${scene.length} frames)
-                </div>
-              `;
-        });
-
-        scenesInfo.innerHTML = `
-              <div class="scenes-summary"><i class="fas fa-list"></i> Danh sách cảnh đã phát hiện</div>
-              <div class="scene-list">${sceneListHTML}</div>
-            `;
-        scenesInfo.style.display = "block";
-      } else {
-        scenesInfo.style.display = "none";
-      }
-    } else if (data.method === "transition_aware") {
-      methodInfo.innerHTML = `
-            <h4><i class="fas fa-magic"></i> Phương pháp trích xuất</h4>
-            <p><strong>Phương pháp:</strong> Phát hiện và lọc Transition</p>
-            <p><strong>Ngưỡng phát hiện:</strong> ${thresholdSlider.value}</p>
-            <p><strong>Ngưỡng transition:</strong> ${
-              data.transition_threshold || "0.4"
-            }</p>
-            <p><strong>Số khung hình đã trích xuất:</strong> ${
-              data.keyframes.length
-            }</p>
-          `;
-
-      // Hiển thị thông tin về ngưỡng độ khác biệt
-      if (data.difference_threshold) {
-        methodInfo.innerHTML += `
-              <p><strong>Ngưỡng độ khác biệt:</strong> ${data.difference_threshold}</p>
-            `;
-      }
-
-      scenesInfo.style.display = "none";
-    }
-
-    // Display transcript if available
-    if (data.transcript && data.transcript.text) {
-      transcriptSection.style.display = "block";
-
-      // Format transcript with timestamps if available
-      const transcriptHTML = `
-            <div class="transcript-text">
-              <p>${data.transcript.text}</p>
-            </div>
-            <div class="transcript-actions">
-              <button id="download-transcript-btn">
-                <i class="fas fa-download"></i> Tải xuống phiên âm
-              </button>
-            </div>
-          `;
-
-      transcriptContent.innerHTML = transcriptHTML;
-
-      // Add event listener for download transcript button
-      document
-        .getElementById("download-transcript-btn")
-        .addEventListener("click", function () {
-          downloadTranscript(currentSessionId);
-        });
-    } else if (data.audio_error) {
-      transcriptSection.style.display = "block";
-      transcriptContent.innerHTML = `
-            <div class="error-message">
-              <i class="fas fa-exclamation-triangle"></i> <strong>Lỗi khi xử lý âm thanh:</strong> ${data.audio_error}
-            </div>
-          `;
-    } else {
-      transcriptSection.style.display = "none";
-    }
-
-    // Display keyframes
+    // Clear previous results
     keyframesGallery.innerHTML = "";
 
+    // Display keyframes
     if (data.keyframes && data.keyframes.length > 0) {
       debugLog(`Rendering ${data.keyframes.length} keyframes`);
 
@@ -1458,22 +1338,6 @@ document.addEventListener("DOMContentLoaded", function () {
     >
   </div>
   <div class="keyframe-info">
-    <p><strong>Thời điểm:</strong> ${timeString}</p>
-    <div class="keyframe-meta">
-      <span>Frame #${frameNumber}</span>
-      ${
-        frame.is_similar && frame.similarity !== undefined
-          ? `<span>Độ tương đồng: ${(frame.similarity * 100).toFixed(
-              0
-            )}%</span>`
-          : ""
-      }
-      ${
-        frame.is_duplicate && frame.similarity !== undefined
-          ? `<span>Độ trùng lặp: ${(frame.similarity * 100).toFixed(0)}%</span>`
-          : ""
-      }
-    </div>
     <div class="keyframe-actions">
       <button class="generate-image-btn" data-frame-path="${imagePath.replace(
         "/static/",
@@ -1710,7 +1574,6 @@ document.addEventListener("DOMContentLoaded", function () {
     );
     if (autoProcessBtn) {
       autoProcessBtn.parentElement.style.display = "block";
-
       // Gỡ bỏ tất cả các event listener hiện tại
       const newBtn = autoProcessBtn.cloneNode(true);
       autoProcessBtn.parentNode.replaceChild(newBtn, autoProcessBtn);
@@ -1755,86 +1618,21 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
 
-    // Display transcript if available (from regular audio extraction)
-    if (data.transcript && data.transcript.text) {
-      transcriptSection.style.display = "block";
-
-      // Format transcript with timestamps if available
-      const transcriptHTML = `
-            <div class="transcript-text">
-              <p>${data.transcript.text}</p>
-            </div>
-            <div class="transcript-actions">
-              <button id="download-transcript-btn">
-                <i class="fas fa-download"></i> Tải xuống phiên âm
-              </button>
-            </div>
-          `;
-
-      transcriptContent.innerHTML = transcriptHTML;
-
-      // Add event listener for download transcript button
-      document
-        .getElementById("download-transcript-btn")
-        .addEventListener("click", function () {
-          downloadTranscript(currentSessionId);
-        });
-    } else if (data.audio_error) {
-      transcriptSection.style.display = "block";
-      transcriptContent.innerHTML = `
-            <div class="error-message">
-              <i class="fas fa-exclamation-triangle"></i> <strong>Lỗi khi xử lý âm thanh:</strong> ${data.audio_error}
-            </div>
-          `;
-    } else {
-      transcriptSection.style.display = "none";
-    }
-
     // Display video info
-    let videoInfoHTML = `
-          <h4><i class="fas fa-info-circle"></i> Thông tin video</h4>
-          <p><strong>Tên file:</strong> ${
-            data.video_name || data.filename || "Unknown"
-          }</p>
-        `;
+    videoInfo.innerHTML = `
+      <div class="video-details">
+        <h3>${data.video_name || "Video"}</h3>
+        <p>
+          <i class="fas fa-film"></i> Số shots: ${data.shots.length}
+        </p>
+      </div>
+    `;
 
-    if (data.saved_folder) {
-      videoInfoHTML += `<p><strong>Thư mục lưu trữ:</strong> ${data.saved_folder}</p>`;
-    }
-
-    if (data.duration) {
-      const minutes = Math.floor(data.duration / 60);
-      const seconds = Math.round(data.duration % 60);
-      videoInfoHTML += `<p><strong>Thời lượng:</strong> ${minutes}:${
-        seconds < 10 ? "0" + seconds : seconds
-      }</p>`;
-    }
-
-    videoInfo.innerHTML = videoInfoHTML;
-
-    // Display method info
-    // Display method info
-    methodInfo.innerHTML = `
-    <h4><i class="fab fa-microsoft"></i> Phương pháp trích xuất</h4>
-    <p><strong>Phương pháp:</strong> Azure Video Indexer AI</p>
-    <p><strong>Số shots đã phát hiện:</strong> ${
-      data.shots ? data.shots.length : 0
-    }</p>
-  `;
-
-    // Display scenes info if available
-    scenesInfo.style.display = "none";
-
-    // Display keyframes/scenes gallery
+    // Clear previous results
     keyframesGallery.innerHTML = "";
 
-    // Only display shots
+    // Display shots
     if (data.shots && data.shots.length > 0) {
-      const shotsHeader = document.createElement("h4");
-      shotsHeader.className = "gallery-section-header";
-      shotsHeader.innerHTML = '<i class="fas fa-film"></i> Shots';
-      keyframesGallery.appendChild(shotsHeader);
-
       data.shots.forEach((shot, index) => {
         const keyframeElement = document.createElement("div");
         keyframeElement.className = "keyframe azure-shot";
@@ -1860,10 +1658,6 @@ document.addEventListener("DOMContentLoaded", function () {
   <img src="${imgSrc}" alt="Shot ${shot.shot_index}" loading="lazy">
 </div>
 <div class="keyframe-info">
-  <p><strong>Thời điểm:</strong> ${startTime} - ${endTime}</p>
-  <div class="keyframe-meta">
-    <span>Shot #${shot.shot_index}</span>
-  </div>
   <div class="keyframe-actions">
     <button class="generate-image-btn" data-frame-path="${shot.path || ""}">
       <i class="fas fa-palette"></i> Tạo ảnh mới
@@ -3817,6 +3611,214 @@ document.addEventListener("DOMContentLoaded", function () {
       border-radius: 8px;
       padding: 20px;
       margin-bottom: 20px;
+    }
+    
+    .batch-upload-area {
+      border: 2px dashed #6c7ae0;
+      border-radius: 8px;
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 20px;
+      background-color: #f0f2ff;
+      transition: all 0.3s ease;
+    }
+    
+    .batch-upload-area:hover {
+      background-color: #e8ecff;
+      border-color: #5468e7;
+    }
+    
+    .prompt-section {
+      margin-bottom: 20px;
+    }
+    
+    .prompt-section textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ced4da;
+      border-radius: 8px;
+      font-size: 14px;
+      resize: vertical;
+    }
+    
+    .prompt-tips {
+      background-color: #e8f4ff;
+      padding: 10px 15px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+    
+    .prompt-tips ul {
+      margin: 5px 0 0 20px;
+      padding: 0;
+    }
+    
+    .prompt-tips li {
+      margin-bottom: 5px;
+    }
+    
+    .autosave-note {
+      margin-top: 10px;
+      padding: 5px 10px;
+      background-color: #f2fff2;
+      border-left: 3px solid #28a745;
+      color: #155724;
+      font-size: 13px;
+      border-radius: 3px;
+    }
+    
+    .autosave-note i {
+      margin-right: 5px;
+    }
+    
+    .batch-actions {
+      text-align: center;
+      margin-top: 20px;
+    }
+    
+    .batch-progress-container {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .batch-results-container {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e5e5;
+    }
+    
+    .batch-results-section {
+      margin-top: 40px;
+    }
+    
+    .batch-results-summary {
+      display: flex;
+      justify-content: space-around;
+      margin: 20px 0;
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .batch-results-actions {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .batch-results-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    
+    .result-item {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    
+    .result-image {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+    }
+    
+    .result-content {
+      padding: 15px;
+    }
+    
+    .result-text {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      white-space: pre-wrap;
+    }
+    
+    .selected-files-info {
+      margin-top: 15px;
+      padding: 8px 15px;
+      background-color: #e9ecef;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .error-message {
+      color: #dc3545;
+      margin-top: 5px;
+      font-size: 13px;
+    }
+    
+    @media (max-width: 768px) {
+      .batch-results-summary {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .batch-results-actions {
+        flex-direction: column;
+      }
+    }
+
+    /* Add fixed queue button styles */
+    #view-image-queue {
+      position: fixed;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 1000;
+      background-color: #4361ee;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease;
+      white-space: nowrap;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    #view-image-queue:hover {
+      background-color: #5468e7;
+      transform: translateY(-50%) scale(1.05);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    #view-image-queue i {
+      font-size: 18px;
+    }
+
+    #view-image-queue .queue-count {
+      background-color: #ff4757;
+      color: white;
+      border-radius: 12px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: bold;
+      min-width: 20px;
+      text-align: center;
     }
     
     .batch-upload-area {
