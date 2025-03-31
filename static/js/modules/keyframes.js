@@ -20,12 +20,20 @@ import {
   setKeyframesData,
 } from "./extraction.js";
 
+// Use FileSaver.js from CDN for transcript downloads
+const { saveAs } = window;
+
 // Các biến toàn cục
 let resultsSection, keyframesGallery, videoInfo, methodInfo, scenesInfo;
 let downloadAllBtn, extractScriptBtn, newVideoBtn, checkPathsBtn;
 let similarityNotification, similarCount, removeSimilarBtn;
 let duplicateNotification, duplicateCount, removeDuplicatesBtn;
 let differenceThreshold = 0.32;
+
+// Utility function to check if a value is a valid non-empty array
+function isValidArray(value) {
+  return Array.isArray(value) && value.length > 0;
+}
 
 export function initKeyframes() {
   // Khởi tạo các DOM elements
@@ -305,9 +313,125 @@ export function checkAllImagePaths() {
 // Display results
 export function displayResults(data) {
   resultsSection.style.display = "block";
+  document.getElementById("progress-container").style.display = "none";
   document.getElementById("script-section").style.display = "none";
   document.getElementById("generated-images-section").style.display = "none";
-  document.getElementById("transcript-section").style.display = "none";
+
+  // DEBUG: Log transcript data to see what's coming from the server
+  console.log("Transcript data received:", data.transcript);
+  console.log("Audio error:", data.audio_error);
+
+  // Check for transcript data and display if available
+  const transcriptSection = document.getElementById("transcript-section");
+  const transcriptContent = document.getElementById("transcript-content");
+
+  if (transcriptSection && transcriptContent) {
+    // Check if there was an audio processing error
+    if (data.audio_error) {
+      transcriptContent.innerHTML = `
+        <div class="transcript-error">
+          <i class="fas fa-exclamation-circle"></i>
+          <p>Không thể trích xuất hoặc phiên âm: ${data.audio_error}</p>
+        </div>
+      `;
+      transcriptSection.style.display = "block";
+    }
+    // Process transcript if available
+    else if (data.transcript) {
+      // Format transcript with timestamps
+      let formattedTranscript = "";
+
+      // Check if transcript is an object with text property
+      if (
+        data.transcript &&
+        typeof data.transcript === "object" &&
+        data.transcript.text
+      ) {
+        formattedTranscript = data.transcript.text;
+      }
+      // Check if transcript is an array
+      else if (isValidArray(data.transcript)) {
+        data.transcript.forEach((entry) => {
+          const timestamp = entry.timestamp
+            ? formatTime(entry.timestamp)
+            : "00:00:00";
+          const text = entry.text || entry;
+          formattedTranscript += `[${timestamp}] ${text}\n\n`;
+        });
+      }
+      // Check if transcript is a string
+      else if (typeof data.transcript === "string") {
+        formattedTranscript = data.transcript;
+      }
+
+      // Display transcript if we have content
+      if (formattedTranscript.trim()) {
+        transcriptContent.innerHTML = formattedTranscript
+          .split("\n\n")
+          .map((line) => {
+            if (!line.trim()) return "";
+            const timestampMatch = line.match(/\[(.*?)\]/);
+            if (timestampMatch) {
+              const timestamp = timestampMatch[0];
+              const text = line.replace(timestamp, "").trim();
+              return `<div class="transcript-entry">
+                <span class="transcript-timestamp">${timestamp}</span>
+                <span class="transcript-text">${text}</span>
+              </div>`;
+            }
+            return `<div class="transcript-entry">
+              <span class="transcript-text">${line}</span>
+            </div>`;
+          })
+          .join("");
+        transcriptSection.style.display = "block";
+
+        // Add download transcript button if it doesn't exist
+        if (!document.getElementById("download-transcript-btn")) {
+          const transcriptActions = document.createElement("div");
+          transcriptActions.className = "transcript-actions";
+          transcriptActions.innerHTML = `
+            <button id="copy-transcript-btn" class="secondary-btn">
+              <i class="fas fa-copy"></i> Sao chép
+            </button>
+            <button id="download-transcript-btn">
+              <i class="fas fa-download"></i> Tải xuống phiên âm
+            </button>
+          `;
+          transcriptSection.appendChild(transcriptActions);
+
+          // Add event listener to copy button
+          document
+            .getElementById("copy-transcript-btn")
+            .addEventListener("click", function () {
+              navigator.clipboard
+                .writeText(formattedTranscript)
+                .then(() => {
+                  showToast("Đã sao chép phiên âm vào clipboard");
+                })
+                .catch((err) => {
+                  console.error("Could not copy text: ", err);
+                  showToast("Không thể sao chép phiên âm");
+                });
+            });
+
+          // Add event listener to download button
+          document
+            .getElementById("download-transcript-btn")
+            .addEventListener("click", function () {
+              const blob = new Blob([formattedTranscript], {
+                type: "text/plain;charset=utf-8",
+              });
+              saveAs(blob, `transcript-${getCurrentSessionId()}.txt`);
+            });
+        }
+      } else {
+        transcriptSection.style.display = "none";
+      }
+    } else {
+      transcriptSection.style.display = "none";
+    }
+  }
 
   // Show the auto-process button after extraction
   const autoProcessBtn = document.getElementById("auto-process-keyframes-btn");
@@ -650,9 +774,124 @@ export function displayResults(data) {
 // Display Azure results
 export function displayAzureResults(data) {
   resultsSection.style.display = "block";
+  document.getElementById("progress-container").style.display = "none";
   document.getElementById("script-section").style.display = "none";
   document.getElementById("generated-images-section").style.display = "none";
-  document.getElementById("transcript-section").style.display = "none";
+
+  // DEBUG: Log transcript data to see what's coming from the server
+  console.log("Azure Transcript data received:", data.transcript);
+  console.log("Azure Audio error:", data.audio_error);
+
+  // Check for transcript data and display if available
+  const transcriptSection = document.getElementById("transcript-section");
+  const transcriptContent = document.getElementById("transcript-content");
+
+  if (transcriptSection && transcriptContent) {
+    // Check if there was an audio processing error
+    if (data.audio_error) {
+      transcriptContent.innerHTML = `
+        <div class="transcript-error">
+          <i class="fas fa-exclamation-circle"></i>
+          <p>Không thể trích xuất hoặc phiên âm: ${data.audio_error}</p>
+        </div>
+      `;
+      transcriptSection.style.display = "block";
+    }
+    // Process transcript if available
+    else if (data.transcript) {
+      // Format transcript with timestamps
+      let formattedTranscript = "";
+
+      // Check if transcript is an object with text property
+      if (
+        data.transcript &&
+        typeof data.transcript === "object" &&
+        data.transcript.text
+      ) {
+        formattedTranscript = data.transcript.text;
+      }
+      // Check if transcript is an array of segments with start/end times
+      else if (isValidArray(data.transcript)) {
+        data.transcript.forEach((entry) => {
+          const startTime = formatTime(entry.start || 0);
+          const endTime = formatTime(entry.end || 0);
+          const text = entry.text || "";
+          formattedTranscript += `[${startTime} - ${endTime}] ${text}\n\n`;
+        });
+      }
+      // Check if transcript is a string
+      else if (typeof data.transcript === "string") {
+        formattedTranscript = data.transcript;
+      }
+
+      // Display transcript if we have content
+      if (formattedTranscript.trim()) {
+        transcriptContent.innerHTML = formattedTranscript
+          .split("\n\n")
+          .map((line) => {
+            if (!line.trim()) return "";
+            const timestampMatch = line.match(/\[(.*?)\]/);
+            if (timestampMatch) {
+              const timestamp = timestampMatch[0];
+              const text = line.replace(timestamp, "").trim();
+              return `<div class="transcript-entry">
+                <span class="transcript-timestamp">${timestamp}</span>
+                <span class="transcript-text">${text}</span>
+              </div>`;
+            }
+            return `<div class="transcript-entry">
+              <span class="transcript-text">${line}</span>
+            </div>`;
+          })
+          .join("");
+        transcriptSection.style.display = "block";
+
+        // Add download transcript button if it doesn't exist
+        if (!document.getElementById("download-transcript-btn")) {
+          const transcriptActions = document.createElement("div");
+          transcriptActions.className = "transcript-actions";
+          transcriptActions.innerHTML = `
+            <button id="copy-transcript-btn" class="secondary-btn">
+              <i class="fas fa-copy"></i> Sao chép
+            </button>
+            <button id="download-transcript-btn">
+              <i class="fas fa-download"></i> Tải xuống phiên âm
+            </button>
+          `;
+          transcriptSection.appendChild(transcriptActions);
+
+          // Add event listener to copy button
+          document
+            .getElementById("copy-transcript-btn")
+            .addEventListener("click", function () {
+              navigator.clipboard
+                .writeText(formattedTranscript)
+                .then(() => {
+                  showToast("Đã sao chép phiên âm vào clipboard");
+                })
+                .catch((err) => {
+                  console.error("Could not copy text: ", err);
+                  showToast("Không thể sao chép phiên âm");
+                });
+            });
+
+          // Add event listener to download button
+          document
+            .getElementById("download-transcript-btn")
+            .addEventListener("click", function () {
+              const blob = new Blob([formattedTranscript], {
+                type: "text/plain;charset=utf-8",
+              });
+              saveAs(blob, `transcript-${getCurrentSessionId()}.txt`);
+            });
+        }
+      } else {
+        transcriptSection.style.display = "none";
+      }
+    } else {
+      transcriptSection.style.display = "none";
+    }
+  }
 
   // Show the auto-process button after extraction
   const autoProcessBtn = document.getElementById("auto-process-keyframes-btn");
