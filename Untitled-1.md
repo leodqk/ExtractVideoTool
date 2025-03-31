@@ -1,0 +1,45 @@
+```
+└── 📁uploads
+    └── 📁audio
+    └── 📁generated
+        └── 📁batch-1743415943912-0j9k10yg0
+            └── input_0_001_Flux_Dev_A_chubby_orange_tabby_cat_with_a_white_bandage_on_its_0.jpeg
+            └── input_0_002_Flux_Dev_A_photorealistic_image_of_an_anthropomorphic_white_du_0.jpeg
+            └── input_0_003_Flux_Dev_A_photorealistic_image_of_a_plump_white_duck_wearing__0.jpeg
+            └── input_0_004_Flux_Dev_A_chubby_orange_tabby_cat_with_thick_fur_sitting_on_a_0.jpeg
+            └── input_0_005_Flux_Dev_A_fluffy_overweight_ginger_cat_with_large_round_eyes__0.jpeg
+            └── input_0_006_Flux_Dev_A_photorealistic_image_of_an_overweight_ginger_tabby__0.jpeg
+            └── input_0_007_Flux_Dev_An_orange_tabby_cat_chubby_and_round_with_intense_eye_0.jpeg
+            └── input_0_008_Flux_Dev_Photorealistic_image_of_a_fluffy_ginger_cat_roundbodi_0.jpeg
+            └── input_0_009_Flux_Dev_A_chubby_orange_tabby_cat_wearing_a_creamcolored_puff_0.jpeg
+            └── output_0_input_0_001_Flux_Dev_A_chubby_orange_tabby_cat_with_a_white_bandage_on_its_0.jpeg.txt
+            └── output_0_input_0_002_Flux_Dev_A_photorealistic_image_of_an_anthropomorphic_white_du_0.jpeg.txt
+            └── output_0_input_0_003_Flux_Dev_A_photorealistic_image_of_a_plump_white_duck_wearing__0.jpeg.txt
+            └── output_0_input_0_004_Flux_Dev_A_chubby_orange_tabby_cat_with_thick_fur_sitting_on_a_0.jpeg.txt
+            └── output_0_input_0_005_Flux_Dev_A_fluffy_overweight_ginger_cat_with_large_round_eyes__0.jpeg.txt
+            └── output_0_input_0_006_Flux_Dev_A_photorealistic_image_of_an_overweight_ginger_tabby__0.jpeg.txt
+            └── output_0_input_0_007_Flux_Dev_An_orange_tabby_cat_chubby_and_round_with_intense_eye_0.jpeg.txt
+            └── output_0_input_0_008_Flux_Dev_Photorealistic_image_of_a_fluffy_ginger_cat_roundbodi_0.jpeg.txt
+            └── output_0_input_0_009_Flux_Dev_A_chubby_orange_tabby_cat_wearing_a_creamcolored_puff_0.jpeg.txt
+        └── 📁batch-1743416632873-4123cedlw
+            └── input_0_001_Flux_Dev_A_chubby_orange_tabby_cat_with_a_white_bandage_on_its_0.jpeg
+            └── input_0_002_Flux_Dev_A_photorealistic_image_of_an_anthropomorphic_white_du_0.jpeg
+            └── input_0_003_Flux_Dev_A_photorealistic_image_of_a_plump_white_duck_wearing__0.jpeg
+            └── input_0_004_Flux_Dev_A_chubby_orange_tabby_cat_with_thick_fur_sitting_on_a_0.jpeg
+            └── input_0_005_Flux_Dev_A_fluffy_overweight_ginger_cat_with_large_round_eyes__0.jpeg
+            └── input_0_006_Flux_Dev_A_photorealistic_image_of_an_overweight_ginger_tabby__0.jpeg
+            └── input_0_007_Flux_Dev_An_orange_tabby_cat_chubby_and_round_with_intense_eye_0.jpeg
+            └── input_0_008_Flux_Dev_Photorealistic_image_of_a_fluffy_ginger_cat_roundbodi_0.jpeg
+            └── input_0_009_Flux_Dev_A_chubby_orange_tabby_cat_wearing_a_creamcolored_puff_0.jpeg
+            └── output_0_input_0_001_Flux_Dev_A_chubby_orange_tabby_cat_with_a_white_bandage_on_its_0.jpeg.txt
+            └── output_0_input_0_002_Flux_Dev_A_photorealistic_image_of_an_anthropomorphic_white_du_0.jpeg.txt
+            └── output_0_input_0_003_Flux_Dev_A_photorealistic_image_of_a_plump_white_duck_wearing__0.jpeg.txt
+            └── output_0_input_0_004_Flux_Dev_A_chubby_orange_tabby_cat_with_thick_fur_sitting_on_a_0.jpeg.txt
+            └── output_0_input_0_005_Flux_Dev_A_fluffy_overweight_ginger_cat_with_large_round_eyes__0.jpeg.txt
+            └── output_0_input_0_006_Flux_Dev_A_photorealistic_image_of_an_overweight_ginger_tabby__0.jpeg.txt
+            └── output_0_input_0_007_Flux_Dev_An_orange_tabby_cat_chubby_and_round_with_intense_eye_0.jpeg.txt
+            └── output_0_input_0_008_Flux_Dev_Photorealistic_image_of_a_fluffy_ginger_cat_roundbodi_0.jpeg.txt
+            └── output_0_input_0_009_Flux_Dev_A_chubby_orange_tabby_cat_wearing_a_creamcolored_puff_0.jpeg.txt
+    └── 📁keyframes
+    ├── transcripts
+```

@@ -19,7 +19,7 @@ let clearSelectionBtn, geminiPromptInput, processImagesBtn;
 let batchProgressContainer, batchProgress, batchProgressText;
 let batchResultsSection, batchResultsGallery;
 let totalProcessedCount, successCount, failedCount;
-let downloadAllResultsBtn, processNewBatchBtn;
+let downloadAllResultsBtn, importToKlingBtn, processNewBatchBtn;
 
 export function initBatchProcessing() {
   // Khởi tạo các DOM elements
@@ -39,6 +39,7 @@ export function initBatchProcessing() {
   successCount = document.getElementById("success-count");
   failedCount = document.getElementById("failed-count");
   downloadAllResultsBtn = document.getElementById("download-all-results-btn");
+  importToKlingBtn = document.getElementById("import-to-kling-btn");
   processNewBatchBtn = document.getElementById("process-new-batch-btn");
 
   // Tải prompt từ localStorage nếu có
@@ -103,6 +104,13 @@ export function initBatchProcessing() {
   if (downloadAllResultsBtn) {
     downloadAllResultsBtn.addEventListener("click", function () {
       downloadAllBatchResultsHandler();
+    });
+  }
+
+  // Handle Import to Kling button
+  if (importToKlingBtn) {
+    importToKlingBtn.addEventListener("click", function () {
+      importToKlingAIHandler();
     });
   }
 
@@ -383,6 +391,48 @@ function displayBatchResults(results, sessionId) {
 // Download all batch results handler
 function downloadAllBatchResultsHandler() {
   downloadBatchResults(batchSessionId);
+}
+
+// Import to Kling AI handler
+function importToKlingAIHandler() {
+  // First download the results, then send to Kling AI automation server
+  if (!batchSessionId) {
+    showToast("Không có kết quả để nhập vào Kling AI");
+    return;
+  }
+
+  // Hiển thị thông báo đang xử lý
+  showToast("Đang chuẩn bị dữ liệu nhập vào Kling AI...");
+
+  // Call the server endpoint to download and process with Kling AI
+  fetch(`/import-to-kling/${batchSessionId}`)
+    .then((response) => {
+      if (!response.ok) {
+        if (response.status === 400) {
+          throw new Error("Session ID không hợp lệ");
+        } else if (response.status === 404) {
+          throw new Error("Không tìm thấy dữ liệu cho session này");
+        } else {
+          throw new Error(
+            `Lỗi server: ${response.status} ${response.statusText}`
+          );
+        }
+      }
+      return response.json();
+    })
+    .then((data) => {
+      if (data.success) {
+        showToast(
+          "Đã gửi dữ liệu đến Kling AI thành công. Tiến trình sẽ chạy trong nền."
+        );
+      } else {
+        showToast(`Lỗi: ${data.error}`);
+      }
+    })
+    .catch((error) => {
+      console.error("Lỗi khi nhập vào Kling AI:", error);
+      showToast(`Lỗi khi nhập vào Kling AI: ${error.message}`);
+    });
 }
 
 // Download batch results text handler
