@@ -21,6 +21,47 @@ let batchResultsSection, batchResultsGallery;
 let totalProcessedCount, successCount, failedCount;
 let downloadAllResultsBtn, importToKlingBtn, processNewBatchBtn;
 
+// Khởi tạo batchSessionId từ localStorage nếu có
+function initBatchSessionFromLocalStorage() {
+  const storedBatchSessionId = localStorage.getItem("batchSessionId");
+  const storedBatchResults = localStorage.getItem("batchResults");
+
+  if (storedBatchSessionId) {
+    batchSessionId = storedBatchSessionId;
+    console.log("Đã khôi phục batchSessionId từ localStorage:", batchSessionId);
+  }
+
+  if (storedBatchResults) {
+    try {
+      batchResults = JSON.parse(storedBatchResults);
+      console.log(
+        "Đã khôi phục batchResults từ localStorage:",
+        batchResults.length,
+        "kết quả"
+      );
+    } catch (e) {
+      console.error("Lỗi khi parse batchResults từ localStorage:", e);
+    }
+  }
+}
+
+// Lưu thông tin batch vào localStorage
+function saveBatchToLocalStorage() {
+  if (batchSessionId) {
+    localStorage.setItem("batchSessionId", batchSessionId);
+    console.log("Đã lưu batchSessionId vào localStorage:", batchSessionId);
+  }
+
+  if (batchResults && batchResults.length > 0) {
+    localStorage.setItem("batchResults", JSON.stringify(batchResults));
+    console.log(
+      "Đã lưu batchResults vào localStorage:",
+      batchResults.length,
+      "kết quả"
+    );
+  }
+}
+
 export function initBatchProcessing() {
   // Khởi tạo các DOM elements
   batchBrowseBtn = document.getElementById("batch-browse-btn");
@@ -41,6 +82,9 @@ export function initBatchProcessing() {
   downloadAllResultsBtn = document.getElementById("download-all-results-btn");
   importToKlingBtn = document.getElementById("import-to-kling-btn");
   processNewBatchBtn = document.getElementById("process-new-batch-btn");
+
+  // Khôi phục thông tin batch từ localStorage
+  initBatchSessionFromLocalStorage();
 
   // Tải prompt từ localStorage nếu có
   const savedPrompt = localStorage.getItem("geminiPrompt");
@@ -342,6 +386,9 @@ function displayBatchResults(results, sessionId) {
   batchSessionId = sessionId;
   batchResults = results;
 
+  // Lưu thông tin batch vào localStorage
+  saveBatchToLocalStorage();
+
   // Clear previous results
   batchResultsGallery.innerHTML = "";
 
@@ -393,65 +440,136 @@ function downloadAllBatchResultsHandler() {
   downloadBatchResults(batchSessionId);
 }
 
-// Import to Kling AI handler
-function importToKlingAIHandler() {
-  // First download the results, then send to Kling AI automation server
-  if (!batchSessionId) {
-    showToast("Không có kết quả để nhập vào Kling AI");
-    return;
-  }
-
-  // Hiển thị thông báo đang xử lý
-  showToast("Đang chuẩn bị dữ liệu nhập vào Kling AI...");
-
-  // Call the server endpoint to download and process with Kling AI
-  fetch(`/import-to-kling/${batchSessionId}`)
-    .then((response) => {
-      if (!response.ok) {
-        if (response.status === 400) {
-          throw new Error("Session ID không hợp lệ");
-        } else if (response.status === 404) {
-          throw new Error("Không tìm thấy dữ liệu cho session này");
-        } else {
-          throw new Error(
-            `Lỗi server: ${response.status} ${response.statusText}`
-          );
-        }
-      }
-      return response.json();
-    })
-    .then((data) => {
-      if (data.success) {
-        showToast(
-          "Đã gửi dữ liệu đến Kling AI thành công. Tiến trình sẽ chạy trong nền."
-        );
-      } else {
-        showToast(`Lỗi: ${data.error}`);
-      }
-    })
-    .catch((error) => {
-      console.error("Lỗi khi nhập vào Kling AI:", error);
-      showToast(`Lỗi khi nhập vào Kling AI: ${error.message}`);
-    });
-}
-
 // Download batch results text handler
 function downloadBatchResultsTextHandler() {
   downloadBatchResultsText(batchSessionId);
 }
 
+// Import to Kling AI handler
+function importToKlingAIHandler() {
+  // Kiểm tra xem có dữ liệu batch không
+  if (!batchSessionId || batchResults.length === 0) {
+    console.warn("Không có dữ liệu batch để gửi đến Kling AI");
+    showToast(
+      "Không có dữ liệu batch để gửi đến Kling AI. Vui lòng xử lý ảnh trước."
+    );
+    return;
+  }
+
+  // Trước khi gọi API, hiển thị thông tin batch hiện tại trong console của trang web
+  logBatchInformation();
+
+  // Show loading message
+  showToast("Đang mở Kling AI Frame Mode...");
+
+  // Chuẩn bị dữ liệu để gửi đi
+  const batchData = {
+    batchSessionId: batchSessionId,
+    batchResultsCount: batchResults.length,
+  };
+
+  console.log("Gửi thông tin batch đến Kling AI:", batchData);
+
+  // Call the API endpoint to open Chrome with Kling AI
+  fetch("/open-kling-ai", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(batchData), // Truyền dữ liệu batch vào request
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success) {
+        showToast(data.message || "Đã mở Kling AI Frame Mode thành công");
+      } else {
+        showToast(`Lỗi khi mở Kling AI: ${data.error || "Không xác định"}`);
+      }
+    })
+    .catch((error) => {
+      console.error("Error opening Kling AI:", error);
+      showToast(`Lỗi khi mở Kling AI: ${error.message}`);
+    });
+}
+
+// Hiển thị thông tin batch trong console của trang web
+function logBatchInformation() {
+  if (!batchSessionId || batchResults.length === 0) {
+    console.log(
+      "%c===== KHÔNG CÓ DỮ LIỆU BATCH HIỆN TẠI =====",
+      "color: red; font-weight: bold;"
+    );
+    return;
+  }
+
+  console.log(
+    "%c===== THÔNG TIN BATCH IMAGES VÀ PROMPTS =====",
+    "color: green; font-weight: bold; font-size: 14px;"
+  );
+  console.log("Session ID:", batchSessionId);
+  console.log("Số lượng ảnh:", batchResults.length);
+
+  // Lấy thông tin về thư mục lưu trữ
+  const folderPath = `uploads/generated/${batchSessionId}`;
+  console.log("Thư mục batch:", folderPath);
+
+  // Hiển thị thông tin chi tiết về từng ảnh và prompt
+  batchResults.forEach((result, index) => {
+    // Đường dẫn ảnh từ server
+    const imagePath = result.original_image.startsWith("blob:")
+      ? `${folderPath}/input_${index}_${
+          result.original_filename || `image_${index + 1}.jpeg`
+        }`
+      : result.original_image;
+
+    // Đường dẫn file prompt
+    const promptPath = `${folderPath}/output_${index}_input_${index}_${
+      result.original_filename || `image_${index + 1}.jpeg`
+    }.txt`;
+
+    console.log(`%c[ẢNH ${index + 1}]`, "color: blue; font-weight: bold;");
+    console.log("Đường dẫn ảnh:", imagePath);
+    console.log("Đường dẫn prompt:", promptPath);
+    console.log(
+      "Nội dung prompt:",
+      result.result_text || "[Không có nội dung]"
+    );
+    console.log("-".repeat(40));
+  });
+
+  console.log(
+    "%c============================================",
+    "color: green; font-weight: bold; font-size: 14px;"
+  );
+}
+
 // Reset batch processing
 function resetBatchProcessing() {
+  // Clear selected files
   clearBatchSelection();
-  // Không xóa giá trị prompt để giữ nguyên cho lần sau
-  // geminiPromptInput.value = '';
+
+  // Hide results container
   const batchResultsContainer = document.getElementById(
     "batch-results-container"
   );
   if (batchResultsContainer) {
     batchResultsContainer.style.display = "none";
   }
-  validateBatchForm();
-  batchSessionId = null;
+
+  // Clear results
   batchResults = [];
+  batchSessionId = null;
+
+  // Xóa dữ liệu batch khỏi localStorage
+  localStorage.removeItem("batchSessionId");
+  localStorage.removeItem("batchResults");
+  console.log("Đã xóa thông tin batch khỏi localStorage");
+
+  // Show upload form
+  const batchUploadContainer = document.getElementById(
+    "batch-upload-container"
+  );
+  if (batchUploadContainer) {
+    batchUploadContainer.style.display = "block";
+  }
 }

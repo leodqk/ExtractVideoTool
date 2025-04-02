@@ -1,9 +1,11 @@
 import os
 import logging
-from flask import Flask
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import google.generativeai as genai
 from config import GEMINI_API_KEY
+import threading
+import traceback
 
 # Initialize the Flask application
 app = Flask(__name__)

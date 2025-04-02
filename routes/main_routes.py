@@ -1,7 +1,11 @@
-from flask import render_template, send_from_directory, jsonify, send_file
+from flask import render_template, send_from_directory, jsonify, send_file, request
 import tempfile
 import os
 import logging
+import subprocess
+import sys
+import threading
+import traceback
 
 def register_main_routes(app):
     @app.route('/')
@@ -15,6 +19,33 @@ def register_main_routes(app):
     @app.route('/swagger.yaml')
     def swagger_yaml():
         return send_from_directory('.', 'swagger.yaml')
+
+    @app.route('/open-kling-ai', methods=['POST'])
+    def open_kling_ai():
+        """API endpoint to open Kling AI in Chrome browser using Playwright"""
+        try:
+            # Lấy batch_session_id từ request JSON nếu có
+            data = request.json or {}
+            batch_session_id = data.get('batchSessionId')
+            
+            logging.info(f"Nhận yêu cầu mở Kling AI với batch session ID: {batch_session_id}")
+            
+            # Import module open_chrome từ scripts
+            import scripts.open_chrome as open_chrome
+            
+            # Sử dụng threading để chạy hàm open_kling_ai không đồng bộ
+            threading.Thread(target=open_chrome.open_kling_ai, args=[batch_session_id]).start()
+            
+            logging.info(f"Đã khởi tạo thread để mở Kling AI với batch ID: {batch_session_id}")
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Đang mở Kling AI Frame Mode trong Chrome'
+            })
+        except Exception as e:
+            logging.error(f"Error opening Kling AI: {str(e)}")
+            logging.error(traceback.format_exc())
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     @app.route('/download/<session_id>', methods=['GET'])
     def download_keyframes(session_id):
@@ -223,122 +254,3 @@ def register_main_routes(app):
             logging.error(f"Error downloading Gemini results as text: {str(e)}")
             return jsonify({'error': str(e)}), 500
 
-    @app.route('/import-to-kling/<session_id>', methods=['GET'])
-    def import_to_kling(session_id):
-        """API endpoint để tải xuống kết quả xử lý Gemini và gửi đến Kling AI để xử lý tự động"""
-        try:
-            from config import GENERATED_IMAGES_FOLDER
-            from utils.file_utils import create_zip_from_files
-            import subprocess
-            import threading
-            
-            # Kiểm tra session ID - cho phép định dạng batch-timestamp-random
-            if not session_id:
-                return jsonify({'error': 'Thiếu Session ID'}), 400
-            
-            # Kiểm tra đường dẫn tới thư mục session
-            session_folder = os.path.join(GENERATED_IMAGES_FOLDER, session_id)
-            if not os.path.exists(session_folder):
-                # Thử tìm kiếm thư mục phù hợp với pattern
-                if session_id.startswith('batch-'):
-                    # Đây là ID mới được tạo từ client
-                    for folder in os.listdir(GENERATED_IMAGES_FOLDER):
-                        if folder.startswith('batch-'):
-                            session_folder = os.path.join(GENERATED_IMAGES_FOLDER, folder)
-                            logging.info(f"Tìm thấy thư mục thay thế: {session_folder}")
-                            break
-                
-                # Nếu vẫn không tìm thấy, báo lỗi
-                if not os.path.exists(session_folder):
-                    return jsonify({'error': 'Không tìm thấy dữ liệu cho session này'}), 404
-            
-            logging.info(f"Chuẩn bị dữ liệu cho Kling AI từ session: {session_id}, thư mục: {session_folder}")
-            
-            # Tìm tất cả các file input (ảnh) và output (txt) theo thứ tự
-            input_files = []
-            output_files = []
-            
-            for file in os.listdir(session_folder):
-                if file.startswith('input_'):
-                    input_files.append((os.path.join(session_folder, file), file))
-                elif file.startswith('output_') and file.endswith('.txt'):
-                    output_files.append((os.path.join(session_folder, file), file))
-            
-            # Sắp xếp theo số thứ tự trong tên file (input_0_..., output_0_...)
-            def get_file_index(filename):
-                try:
-                    # Lấy phần index từ tên file (phần thứ 2 sau khi tách theo dấu '_')
-                    return int(os.path.basename(filename).split('_')[1])
-                except (IndexError, ValueError):
-                    # Nếu không thể lấy được index, trả về giá trị lớn để đưa xuống cuối
-                    return 999999
-                    
-            # Sắp xếp các file theo index tăng dần
-            input_files.sort(key=lambda f: get_file_index(f[1]))
-            output_files.sort(key=lambda f: get_file_index(f[1]))
-            
-            # Tạo file txt tạm thời chứa tất cả prompt
-            all_prompts_path = os.path.join(tempfile.gettempdir(), f"all_prompts_{session_id}.txt")
-            with open(all_prompts_path, 'w', encoding='utf-8') as outfile:
-                for i, (file_path, _) in enumerate(output_files):
-                    try:
-                        with open(file_path, 'r', encoding='utf-8') as infile:
-                            content = infile.read().strip()
-                            outfile.write(f"{content}\n")
-                    except Exception as e:
-                        logging.error(f"Lỗi khi đọc file {file_path}: {str(e)}")
-                        outfile.write(f"[Lỗi đọc kết quả cho ảnh {i+1}]\n")
-            
-            # Tạo tệp ZIP tạm thời
-            zip_filename = f"gemini_results_{session_id}.zip"
-            
-            # Chuẩn bị danh sách file để thêm vào ZIP
-            files_to_zip = []
-            
-            # Thêm tất cả các ảnh vào ZIP
-            for i, (file_path, file_name) in enumerate(input_files):
-                # Sử dụng biến i (chỉ số vòng lặp) để đảm bảo tên file luôn duy nhất
-                # Lấy phần mở rộng từ tên file gốc
-                _, ext = os.path.splitext(file_name)
-                # Tạo tên file mới theo định dạng image_001.jpg, image_002.jpg, etc.
-                new_name = f"image_{i+1:03d}{ext}"
-                files_to_zip.append((file_path, new_name))
-            
-            # Thêm file txt chứa tất cả prompt
-            files_to_zip.append((all_prompts_path, "all_prompts.txt"))
-            
-            # Tạo file ZIP
-            zip_path = create_zip_from_files(files_to_zip, zip_filename)
-            
-            # Định nghĩa hàm chạy script tự động trong thread riêng biệt
-            def run_kling_automation(zip_file_path):
-                try:
-                    script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'scripts', 'kling_automation.py')
-                    cmd = ['python', script_path, zip_file_path]
-                    
-                    logging.info(f"Chạy script tự động: {' '.join(cmd)}")
-                    
-                    # Chạy script trong subprocess
-                    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    stdout, stderr = process.communicate()
-                    
-                    if process.returncode != 0:
-                        logging.error(f"Lỗi khi chạy script tự động: {stderr.decode('utf-8', errors='ignore')}")
-                    else:
-                        logging.info(f"Script tự động đã chạy thành công: {stdout.decode('utf-8', errors='ignore')}")
-                except Exception as e:
-                    logging.error(f"Lỗi khi chạy script tự động: {str(e)}")
-            
-            # Chạy script tự động trong thread riêng biệt
-            thread = threading.Thread(target=run_kling_automation, args=(zip_path,))
-            thread.daemon = True  # Để thread không chặn server khi tắt
-            thread.start()
-            
-            return jsonify({
-                'success': True,
-                'message': 'Đã gửi dữ liệu đến Kling AI thành công. Tiến trình sẽ chạy trong nền.'
-            })
-            
-        except Exception as e:
-            logging.error(f"Error importing to Kling AI: {str(e)}")
-            return jsonify({'error': str(e)}), 500
