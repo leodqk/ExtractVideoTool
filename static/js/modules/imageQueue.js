@@ -132,9 +132,7 @@ export function showImageQueueModal() {
   // Thêm sự kiện cho nút đóng
   const closeBtn = modal.querySelector(".close-btn");
   closeBtn.addEventListener("click", function () {
-    if (confirm("Bạn có chắc chắn muốn hủy quá trình tự động thao tác?")) {
-      document.body.removeChild(modalOverlay);
-    }
+    document.body.removeChild(modalOverlay);
   });
 
   // Thêm sự kiện cho các nút trong modal nếu có ảnh

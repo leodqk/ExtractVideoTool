@@ -100,11 +100,11 @@ header p {
   background-color: white;
   border-radius: 10px;
   box-shadow: var(--card-shadow);
-  padding: 30px;
   margin-bottom: 40px;
 }
 
 .upload-container {
+  padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1751,11 +1751,6 @@ footer {
     padding: 15px;
   }
 
-  .upload-section,
-  .results-section {
-    padding: 20px;
-  }
-
   .method-options {
     grid-template-columns: 1fr;
   }
@@ -2731,12 +2726,11 @@ footer {
 }
 
 #home-btn {
-  position: fixed;
+  position: absolute;
   left: 20px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 20px;
   z-index: 1000;
-  background-color: #4361ee;
+  background-color: var(--primary-color);
   color: white;
   border: none;
   border-radius: 8px;
@@ -2754,8 +2748,6 @@ footer {
 
 #home-btn:hover {
   background-color: #5468e7;
-  transform: translateY(-50%) scale(1.05);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
 #home-btn i {

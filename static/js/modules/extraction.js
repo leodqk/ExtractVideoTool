@@ -41,6 +41,16 @@ async function startExtraction() {
     return;
   }
 
+  // If using Azure method and save settings is checked, save the settings
+  if (
+    selectedMethod === "azure" &&
+    document.getElementById("azure-save-settings").checked
+  ) {
+    import("../services/azureService.js").then(({ saveAzureSettings }) => {
+      saveAzureSettings();
+    });
+  }
+
   // Show progress
   uploadContainer.style.display = "none";
   progressContainer.style.display = "block";
@@ -137,7 +147,7 @@ function validateInputs(activeUploadMethod, selectedMethod) {
 
     if (!apiKey || !accountId || !location) {
       showError(
-        "Vui lòng nhập đầy đủ thông tin API Key, Account ID và Location cho Azure"
+        "Vui lòng nhập đầy đủ thông tin API Key, Account ID và Location cho Azure Video Indexer"
       );
       return false;
     }
