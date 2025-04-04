@@ -52,3 +52,8 @@ document.addEventListener("DOMContentLoaded", function () {
     initBatchProcessing();
   });
 });
+
+// Add home button event listener
+document.getElementById("home-btn").addEventListener("click", function () {
+  window.location.reload();
+});

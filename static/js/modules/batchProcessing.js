@@ -20,6 +20,7 @@ let batchProgressContainer, batchProgress, batchProgressText;
 let batchResultsSection, batchResultsGallery;
 let totalProcessedCount, successCount, failedCount;
 let downloadAllResultsBtn, importToKlingBtn, processNewBatchBtn;
+let importToHailouBtn;
 
 // Khởi tạo batchSessionId từ localStorage nếu có
 function initBatchSessionFromLocalStorage() {
@@ -82,6 +83,7 @@ export function initBatchProcessing() {
   downloadAllResultsBtn = document.getElementById("download-all-results-btn");
   importToKlingBtn = document.getElementById("import-to-kling-btn");
   processNewBatchBtn = document.getElementById("process-new-batch-btn");
+  importToHailouBtn = document.getElementById("import-to-hailou-btn");
 
   // Khôi phục thông tin batch từ localStorage
   initBatchSessionFromLocalStorage();
@@ -155,6 +157,13 @@ export function initBatchProcessing() {
   if (importToKlingBtn) {
     importToKlingBtn.addEventListener("click", function () {
       importToKlingAIHandler();
+    });
+  }
+
+  // Handle Import to Hailou button
+  if (importToHailouBtn) {
+    importToHailouBtn.addEventListener("click", function () {
+      importToHailouHandler();
     });
   }
 
@@ -489,6 +498,53 @@ function importToKlingAIHandler() {
     .catch((error) => {
       console.error("Error opening Kling AI:", error);
       showToast(`Lỗi khi mở Kling AI: ${error.message}`);
+    });
+}
+
+// Import to Hailou handler
+function importToHailouHandler() {
+  // Kiểm tra xem có dữ liệu batch không
+  if (!batchSessionId || batchResults.length === 0) {
+    console.warn("Không có dữ liệu batch để gửi đến Hailou");
+    showToast(
+      "Không có dữ liệu batch để gửi đến Hailou. Vui lòng xử lý ảnh trước."
+    );
+    return;
+  }
+
+  // Trước khi gọi API, hiển thị thông tin batch hiện tại trong console của trang web
+  logBatchInformation();
+
+  // Show loading message
+  showToast("Đang mở Hailou...");
+
+  // Chuẩn bị dữ liệu để gửi đi
+  const batchData = {
+    batchSessionId: batchSessionId,
+    batchResultsCount: batchResults.length,
+  };
+
+  console.log("Gửi thông tin batch đến Hailou:", batchData);
+
+  // Call the API endpoint to open Chrome with Hailou
+  fetch("/open-hailou", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(batchData),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success) {
+        showToast(data.message || "Đã mở Hailou thành công");
+      } else {
+        showToast(`Lỗi khi mở Hailou: ${data.error || "Không xác định"}`);
+      }
+    })
+    .catch((error) => {
+      console.error("Error opening Hailou:", error);
+      showToast(`Lỗi khi mở Hailou: ${error.message}`);
     });
 }
 

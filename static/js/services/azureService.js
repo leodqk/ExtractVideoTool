@@ -15,6 +15,39 @@ export function loadAzureCredentials() {
       }
     })
     .catch((error) => console.error("Error loading Azure credentials:", error));
+
+  // Load saved settings from localStorage
+  const savedSettings = localStorage.getItem("azureSettings");
+  if (savedSettings) {
+    try {
+      const settings = JSON.parse(savedSettings);
+      document.getElementById("azure-language").value = settings.language;
+      document.getElementById("azure-force-upload").checked =
+        settings.forceUpload;
+      document.getElementById("azure-use-existing").checked =
+        settings.useExisting;
+      document.getElementById("azure-save-settings").checked = true;
+    } catch (error) {
+      console.error("Error loading saved Azure settings:", error);
+    }
+  }
+}
+
+// Save Azure settings to localStorage
+export function saveAzureSettings() {
+  const saveSettings = document.getElementById("azure-save-settings").checked;
+  if (saveSettings) {
+    const settings = {
+      language: document.getElementById("azure-language").value,
+      forceUpload: document.getElementById("azure-force-upload").checked,
+      useExisting: document.getElementById("azure-use-existing").checked,
+    };
+    localStorage.setItem("azureSettings", JSON.stringify(settings));
+    showToast("Đã lưu cài đặt Azure");
+  } else {
+    localStorage.removeItem("azureSettings");
+    showToast("Đã xóa cài đặt Azure đã lưu");
+  }
 }
 
 // Process video with Azure

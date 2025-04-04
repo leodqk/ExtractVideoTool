@@ -3,7 +3,13 @@
 import { debugLog } from "../utils/debug.js";
 
 // Các biến DOM elements chính
-let uploadTabs, uploadContents, methodOptions, method2Settings, method3Settings;
+let mainTabs,
+  mainTabContents,
+  uploadTabs,
+  uploadContents,
+  methodOptions,
+  method2Settings,
+  method3Settings;
 let thresholdSlider,
   thresholdValue,
   differenceThresholdSlider,
@@ -18,6 +24,8 @@ let activeUploadMethod = "file-upload";
 
 export function initUI() {
   // Khởi tạo các DOM elements
+  mainTabs = document.querySelectorAll(".main-tab");
+  mainTabContents = document.querySelectorAll(".main-tab-content");
   uploadTabs = document.querySelectorAll(".upload-tab");
   uploadContents = document.querySelectorAll(".upload-content");
   methodOptions = document.querySelectorAll(".method-option");
@@ -39,11 +47,51 @@ export function initUI() {
   togglePasswordBtns = document.querySelectorAll(".toggle-password");
 
   // Khởi tạo các sự kiện UI
+  initMainTabSwitching();
   initTabSwitching();
   initMethodSelection();
   initSliders();
   initPasswordToggle();
   addStyles();
+}
+
+function initMainTabSwitching() {
+  mainTabs.forEach((tab) => {
+    tab.addEventListener("click", function () {
+      const tabId = this.getAttribute("data-tab");
+
+      // Update main tabs
+      mainTabs.forEach((t) => t.classList.remove("active"));
+      this.classList.add("active");
+
+      // Update main tab contents
+      mainTabContents.forEach((content) => {
+        content.classList.remove("active");
+        if (content.id === tabId) {
+          content.classList.add("active");
+        }
+      });
+
+      // Reset upload tabs when switching main tabs
+      if (tabId === "create-image") {
+        uploadTabs.forEach((t) => t.classList.remove("active"));
+        uploadContents.forEach((c) => (c.style.display = "none"));
+
+        // Activate first upload tab
+        const firstUploadTab = document.querySelector(
+          ".upload-tab[data-tab='file-upload']"
+        );
+        const firstUploadContent = document.getElementById("file-upload");
+        if (firstUploadTab && firstUploadContent) {
+          firstUploadTab.classList.add("active");
+          firstUploadContent.style.display = "block";
+        }
+      }
+
+      // Update UI based on selected tab
+      updateUIForSelectedTab(tabId);
+    });
+  });
 }
 
 function initTabSwitching() {
@@ -66,6 +114,54 @@ function initTabSwitching() {
 }
 
 function initMethodSelection() {
+  // Set Azure method as default
+  const azureOption = document.querySelector(
+    '.method-option[data-method="azure"]'
+  );
+  if (azureOption) {
+    azureOption.classList.add("active");
+  }
+
+  // Hide all method-specific settings first
+  method2Settings.forEach((setting) => {
+    setting.style.display = "none";
+  });
+  method3Settings.forEach((setting) => {
+    setting.style.display = "none";
+  });
+
+  // Show Azure settings by default
+  const azureSettings = document.querySelectorAll(".azure-setting");
+  azureSettings.forEach((setting) => {
+    setting.style.display = "block";
+  });
+
+  // Hide basic parameters section for Azure
+  const basicParamsHeading = Array.from(document.querySelectorAll("h4")).find(
+    (h4) => h4.textContent.trim() === "Tham số cơ bản"
+  );
+  const basicParamsSection = basicParamsHeading
+    ? basicParamsHeading.closest(".setting-group")
+    : null;
+  if (basicParamsSection) {
+    basicParamsSection.style.display = "none";
+  }
+
+  // Load saved Azure credentials if available
+  import("../services/azureService.js").then(
+    ({ loadAzureCredentials, saveAzureSettings }) => {
+      loadAzureCredentials();
+
+      // Add event listener for save settings checkbox
+      const saveSettingsCheckbox = document.getElementById(
+        "azure-save-settings"
+      );
+      if (saveSettingsCheckbox) {
+        saveSettingsCheckbox.addEventListener("change", saveAzureSettings);
+      }
+    }
+  );
+
   methodOptions.forEach((option) => {
     option.addEventListener("click", function () {
       methodOptions.forEach((opt) => opt.classList.remove("active"));
@@ -188,17 +284,28 @@ function updateUIForSelectedTab(tabId) {
   const videoMethodSelection = document.querySelector(".method-selection");
   const videoSettings = document.getElementById("video-processing-settings");
   const extractBtn = document.getElementById("extract-btn");
+  const autoProcessContainer = document.querySelector(
+    ".auto-process-container"
+  );
 
   if (tabId === "batch-images-upload") {
     // Nếu là tab xử lý batch ảnh, ẩn các phần liên quan đến video
     if (videoMethodSelection) videoMethodSelection.style.display = "none";
     if (videoSettings) videoSettings.style.display = "none";
     if (extractBtn) extractBtn.style.display = "none";
+    if (autoProcessContainer) autoProcessContainer.style.display = "none";
+  } else if (tabId === "create-video") {
+    // Nếu là tab tạo video, ẩn các phần được yêu cầu
+    if (videoMethodSelection) videoMethodSelection.style.display = "none";
+    if (videoSettings) videoSettings.style.display = "none";
+    if (autoProcessContainer) autoProcessContainer.style.display = "none";
+    if (extractBtn) extractBtn.style.display = "none";
   } else {
-    // Nếu là các tab video, hiển thị các phần liên quan
+    // Nếu là các tab video khác, hiển thị các phần liên quan
     if (videoMethodSelection) videoMethodSelection.style.display = "block";
     if (videoSettings) videoSettings.style.display = "block";
     if (extractBtn) extractBtn.style.display = "block";
+    if (autoProcessContainer) autoProcessContainer.style.display = "block";
   }
 }
 
@@ -271,7 +378,12 @@ function addStyles() {
       border-top: 1px dashed #ccc;
       padding-top: 30px;
     }
-    
+
+
+    #create-video {
+      width: 100%;
+
+    }
     .batch-processing-container {
       width: 100%;
     }

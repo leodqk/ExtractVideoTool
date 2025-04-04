@@ -312,125 +312,44 @@ export function checkAllImagePaths() {
 
 // Display results
 export function displayResults(data) {
+  // Hide upload section
+  document.querySelector(".upload-section").style.display = "none";
+
+  // Hide results header
+  document.querySelector(".results-header").style.display = "none";
+
+  // Show results section
+  const resultsSection = document.getElementById("results-section");
   resultsSection.style.display = "block";
-  document.getElementById("progress-container").style.display = "none";
-  document.getElementById("script-section").style.display = "none";
-  document.getElementById("generated-images-section").style.display = "none";
 
-  // DEBUG: Log transcript data to see what's coming from the server
-  console.log("Transcript data received:", data.transcript);
-  console.log("Audio error:", data.audio_error);
+  // Clear previous results
+  const gallery = document.getElementById("keyframes-gallery");
+  gallery.innerHTML = "";
 
-  // Check for transcript data and display if available
-  const transcriptSection = document.getElementById("transcript-section");
-  const transcriptContent = document.getElementById("transcript-content");
+  // Display each keyframe
+  data.keyframes.forEach((keyframe, index) => {
+    const keyframeElement = createKeyframeElement(keyframe, index);
+    gallery.appendChild(keyframeElement);
+  });
 
-  if (transcriptSection && transcriptContent) {
-    // Check if there was an audio processing error
-    if (data.audio_error) {
-      transcriptContent.innerHTML = `
-        <div class="transcript-error">
-          <i class="fas fa-exclamation-circle"></i>
-          <p>Không thể trích xuất hoặc phiên âm: ${data.audio_error}</p>
-        </div>
-      `;
-      transcriptSection.style.display = "block";
-    }
-    // Process transcript if available
-    else if (data.transcript) {
-      // Format transcript with timestamps
-      let formattedTranscript = "";
+  // Update video info
+  updateVideoInfo(data.videoInfo);
 
-      // Check if transcript is an object with text property
-      if (
-        data.transcript &&
-        typeof data.transcript === "object" &&
-        data.transcript.text
-      ) {
-        formattedTranscript = data.transcript.text;
-      }
-      // Check if transcript is an array
-      else if (isValidArray(data.transcript)) {
-        data.transcript.forEach((entry) => {
-          const timestamp = entry.timestamp
-            ? formatTime(entry.timestamp)
-            : "00:00:00";
-          const text = entry.text || entry;
-          formattedTranscript += `[${timestamp}] ${text}\n\n`;
-        });
-      }
-      // Check if transcript is a string
-      else if (typeof data.transcript === "string") {
-        formattedTranscript = data.transcript;
-      }
+  // Update method info
+  updateMethodInfo(data.methodInfo);
 
-      // Display transcript if we have content
-      if (formattedTranscript.trim()) {
-        transcriptContent.innerHTML = formattedTranscript
-          .split("\n\n")
-          .map((line) => {
-            if (!line.trim()) return "";
-            const timestampMatch = line.match(/\[(.*?)\]/);
-            if (timestampMatch) {
-              const timestamp = timestampMatch[0];
-              const text = line.replace(timestamp, "").trim();
-              return `<div class="transcript-entry">
-                <span class="transcript-timestamp">${timestamp}</span>
-                <span class="transcript-text">${text}</span>
-              </div>`;
-            }
-            return `<div class="transcript-entry">
-              <span class="transcript-text">${line}</span>
-            </div>`;
-          })
-          .join("");
-        transcriptSection.style.display = "block";
+  // Show scenes info if available
+  if (data.scenesInfo) {
+    const scenesInfo = document.getElementById("scenes-info");
+    scenesInfo.style.display = "block";
+    updateScenesInfo(data.scenesInfo);
+  }
 
-        // Add download transcript button if it doesn't exist
-        if (!document.getElementById("download-transcript-btn")) {
-          const transcriptActions = document.createElement("div");
-          transcriptActions.className = "transcript-actions";
-          transcriptActions.innerHTML = `
-            <button id="copy-transcript-btn" class="secondary-btn">
-              <i class="fas fa-copy"></i> Sao chép
-            </button>
-            <button id="download-transcript-btn">
-              <i class="fas fa-download"></i> Tải xuống phiên âm
-            </button>
-          `;
-          transcriptSection.appendChild(transcriptActions);
-
-          // Add event listener to copy button
-          document
-            .getElementById("copy-transcript-btn")
-            .addEventListener("click", function () {
-              navigator.clipboard
-                .writeText(formattedTranscript)
-                .then(() => {
-                  showToast("Đã sao chép phiên âm vào clipboard");
-                })
-                .catch((err) => {
-                  console.error("Could not copy text: ", err);
-                  showToast("Không thể sao chép phiên âm");
-                });
-            });
-
-          // Add event listener to download button
-          document
-            .getElementById("download-transcript-btn")
-            .addEventListener("click", function () {
-              const blob = new Blob([formattedTranscript], {
-                type: "text/plain;charset=utf-8",
-              });
-              saveAs(blob, `transcript-${getCurrentSessionId()}.txt`);
-            });
-        }
-      } else {
-        transcriptSection.style.display = "none";
-      }
-    } else {
-      transcriptSection.style.display = "none";
-    }
+  // Show transcript if available
+  if (data.transcript) {
+    const transcriptSection = document.getElementById("transcript-section");
+    transcriptSection.style.display = "block";
+    updateTranscript(data.transcript);
   }
 
   // Show the auto-process button after extraction
@@ -466,309 +385,6 @@ export function displayResults(data) {
 
   // Store keyframes data globally
   setKeyframesData(data.keyframes || []);
-
-  // Display video info
-  const minutes = Math.floor(data.duration / 60);
-  const seconds = Math.round(data.duration % 60);
-
-  // Check if video is from an online source
-  const isYouTube = data.video_source === "YouTube";
-  const isTikTok = data.video_source === "TikTok";
-
-  // Display video info
-  videoInfo.innerHTML = `
-    <div class="video-details">
-      <h3>${data.filename || "Video"}</h3>
-      <p>
-        <i class="fas fa-clock"></i> Thời lượng: ${minutes}:${seconds
-    .toString()
-    .padStart(2, "0")} | <i class="fas fa-film"></i> ${
-    data.total_frames
-  } khung hình | <i class="fas fa-video"></i> ${data.width}x${
-    data.height
-  } | <i class="fas fa-tachometer-alt"></i> ${data.fps.toFixed(2)} FPS
-      </p>
-      ${
-        isYouTube || isTikTok
-          ? `<p><i class="fas fa-link"></i> Nguồn: <a href="${
-              data.video_url
-            }" target="_blank">${data.video_title || data.video_url}</a></p>`
-          : ""
-      }
-    </div>
-  `;
-
-  // Display method info
-  methodInfo.innerHTML = `
-    <div class="method-details">
-      <h3>Phương pháp trích xuất</h3>
-      <p>
-        <i class="fas fa-cog"></i> Phương pháp: ${
-          data.method === "frame_difference"
-            ? "Dựa trên độ khác biệt"
-            : data.method === "scene_detection"
-            ? "Dựa trên phát hiện cảnh"
-            : "Dựa trên phát hiện transition"
-        }
-      </p>
-      <p>
-        <i class="fas fa-sliders-h"></i> Ngưỡng: ${
-          data.threshold || 30
-        } | <i class="fas fa-image"></i> Số khung hình: ${data.keyframes.length}
-      </p>
-    </div>
-  `;
-
-  // Clear previous results
-  keyframesGallery.innerHTML = "";
-
-  // Display keyframes
-  if (data.keyframes && data.keyframes.length > 0) {
-    debugLog(`Rendering ${data.keyframes.length} keyframes`);
-
-    // Kiểm tra nếu có ảnh tương tự (độ khác biệt thấp)
-    const similarFrames = data.keyframes.filter(
-      (frame) => frame.is_similar === true
-    );
-    if (similarFrames.length > 0 && similarityNotification) {
-      similarityNotification.style.display = "block";
-      similarCount.textContent = similarFrames.length;
-    } else if (similarityNotification) {
-      similarityNotification.style.display = "none";
-    }
-
-    // Kiểm tra nếu có ảnh trùng lặp
-    const duplicateFrames = data.keyframes.filter(
-      (frame) => frame.is_duplicate === true
-    );
-    if (duplicateFrames.length > 0 && duplicateNotification) {
-      duplicateNotification.style.display = "block";
-      duplicateCount.textContent = duplicateFrames.length;
-    } else if (duplicateNotification) {
-      duplicateNotification.style.display = "none";
-    }
-
-    data.keyframes.forEach((frame, index) => {
-      // Tạo một ID duy nhất cho frame nếu không có
-      const frameId = frame.id || `frame-${index}`;
-
-      // Xử lý thời gian hiển thị
-      let timeString = "N/A";
-      if (frame.timestamp !== undefined) {
-        timeString = formatTime(frame.timestamp);
-      } else if (frame.time !== undefined) {
-        timeString = formatTime(frame.time);
-      }
-
-      // Tạo element cho keyframe
-      const keyframeElement = document.createElement("div");
-      keyframeElement.className = "keyframe";
-      keyframeElement.dataset.frameId = frameId;
-      keyframeElement.dataset.frameIndex = index;
-
-      // Thêm các class đặc biệt nếu cần
-      if (frame.is_similar) keyframeElement.classList.add("similar-frame");
-      if (frame.is_duplicate) keyframeElement.classList.add("duplicate-frame");
-
-      // Xử lý các label cần hiển thị
-      let labelHTML = "";
-
-      if (data.method === "scene_detection" && frame.scene_id !== undefined) {
-        labelHTML += `<div class="scene-label">Cảnh ${frame.scene_id}</div>`;
-      }
-
-      if (
-        (data.method === "frame_difference" ||
-          data.method === "transition_aware") &&
-        frame.diff_value !== undefined
-      ) {
-        labelHTML += `<div class="diff-label">${Math.round(
-          frame.diff_value
-        )}</div>`;
-      }
-
-      if (frame.is_similar && frame.similarity !== undefined) {
-        labelHTML += `<div class="similarity-label">Tương tự (${Math.round(
-          frame.similarity * 100
-        )}%)</div>`;
-      }
-
-      if (frame.is_duplicate && frame.similarity !== undefined) {
-        labelHTML += `<div class="duplicate-label">Trùng lặp (${Math.round(
-          frame.similarity * 100
-        )}%)</div>`;
-      }
-
-      if (frame.is_transition) {
-        labelHTML += `<div class="transition-label">Transition</div>`;
-      }
-
-      // Xử lý đường dẫn ảnh với nhiều trường hợp khác nhau
-      const originalPath = frame.path;
-
-      // Chuẩn hóa đường dẫn từ kiểu Windows sang web
-      let imagePath = normalizeImagePath(originalPath);
-
-      debugLog(
-        `Frame ${index}: Original=${originalPath}, Normalized=${imagePath}`
-      );
-
-      const frameNumber = frame.frame_number || index;
-
-      // In the displayResults function, modify the keyframeElement.innerHTML to include the new button
-      keyframeElement.innerHTML = `
-        ${labelHTML}
-        <div class="image-container">
-          <img 
-            src="${imagePath}" 
-            alt="Khung hình ${frameNumber}" 
-            loading="lazy" 
-            onerror="
-              if (!this.dataset.tried) {
-                this.dataset.tried = 'true';
-                console.error('Failed to load image:', this.src);
-                this.src = '/static/${originalPath.replace(/\\/g, "/")}';
-              } else {
-                this.src = '/static/img/error.png';
-              }
-            "
-          >
-        </div>
-        <div class="keyframe-info">
-          <div class="keyframe-actions">
-            <button class="generate-image-btn" data-frame-path="${imagePath.replace(
-              "/static/",
-              ""
-            )}">
-              <i class="fas fa-palette"></i> Tạo ảnh mới
-            </button>
-            <button class="generate-prompt-btn" data-frame-path="${imagePath.replace(
-              "/static/",
-              ""
-            )}">
-              <i class="fas fa-magic"></i> Tạo prompt
-            </button>
-            <button class="delete-frame-btn" data-frame-path="${imagePath.replace(
-              "/static/",
-              ""
-            )}" data-frame-id="${frameId}">
-              <i class="fas fa-trash-alt"></i>
-            </button>
-          </div>
-        </div>
-      `;
-
-      // And then add the event listener for the new button
-      const generatePromptBtn = keyframeElement.querySelector(
-        ".generate-prompt-btn"
-      );
-      generatePromptBtn.addEventListener("click", function () {
-        const framePath = this.dataset.framePath;
-        import("./promptGenerator.js").then(({ generatePrompt }) => {
-          generatePrompt(framePath);
-        });
-      });
-
-      // Add click event to open full image
-      const imgElement = keyframeElement.querySelector("img");
-      imgElement.addEventListener("click", function () {
-        // Instead of opening in a new tab, show in a modal with download options
-        const imgSrc = this.src;
-        const frameId = keyframeElement.dataset.frameId;
-        const keyframeInfo = getKeyframesData().find(
-          (frame) => frame.id === frameId
-        );
-
-        // Create a modal to show the full image with download options
-        const modal = document.createElement("div");
-        modal.className = "modal-overlay";
-        modal.innerHTML = `
-          <div class="modal">
-            <div class="modal-header">
-              <h3><i class="fas fa-image"></i> Xem ảnh đầy đủ</h3>
-              <button class="close-btn">&times;</button>
-            </div>
-            <div class="modal-body">
-              <div class="full-image-container">
-                <img src="${imgSrc}" alt="Ảnh đầy đủ" class="full-image">
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button class="download-image-modal-btn">
-                <i class="fas fa-download"></i> Tải xuống
-              </button>
-              <button class="add-to-queue-modal-btn">
-                <i class="fas fa-layer-group"></i> Lưu vào hàng đợi
-              </button>
-              <button class="save-folder-modal-btn">
-                <i class="fas fa-folder"></i> Lưu vào thư mục
-              </button>
-            </div>
-          </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        // Add close button functionality
-        modal
-          .querySelector(".close-btn")
-          .addEventListener("click", function () {
-            document.body.removeChild(modal);
-          });
-
-        // Add download button functionality
-        modal
-          .querySelector(".download-image-modal-btn")
-          .addEventListener("click", function () {
-            downloadImage(imgSrc);
-          });
-
-        // Add save to folder button functionality
-        modal
-          .querySelector(".save-folder-modal-btn")
-          .addEventListener("click", function () {
-            downloadImagesAsZip([imgSrc], `generated-image-${Date.now()}.zip`);
-          });
-
-        // Add save to queue button functionality
-        modal
-          .querySelector(".add-to-queue-modal-btn")
-          .addEventListener("click", function () {
-            addToImageQueue({
-              url: imgSrc,
-              prompt: data.prompt,
-              timestamp: Date.now(),
-              keyframe: keyframeInfo,
-            });
-          });
-      });
-
-      // Add click event for generate image button
-      const generateBtn = keyframeElement.querySelector(".generate-image-btn");
-      generateBtn.addEventListener("click", function () {
-        const framePath = this.dataset.framePath;
-        import("./imageGeneration.js").then(
-          ({ directLeonardoImageGeneration }) => {
-            directLeonardoImageGeneration(framePath);
-          }
-        );
-      });
-
-      // Add click event for delete button
-      const deleteBtn = keyframeElement.querySelector(".delete-frame-btn");
-      deleteBtn.addEventListener("click", function () {
-        const framePath = this.dataset.framePath;
-        const frameId = this.dataset.frameId;
-        handleDeleteKeyframe(framePath, frameId);
-      });
-
-      keyframesGallery.appendChild(keyframeElement);
-    });
-  } else {
-    console.warn("No keyframes found in data:", data);
-    keyframesGallery.innerHTML =
-      '<p class="no-frames"><i class="fas fa-exclamation-circle"></i> Không có khung hình nào được trích xuất.</p>';
-  }
 }
 
 // Display Azure results
@@ -777,6 +393,7 @@ export function displayAzureResults(data) {
   document.getElementById("progress-container").style.display = "none";
   document.getElementById("script-section").style.display = "none";
   document.getElementById("generated-images-section").style.display = "none";
+  document.querySelector(".results-header").style.display = "none";
 
   // DEBUG: Log transcript data to see what's coming from the server
   console.log("Azure Transcript data received:", data.transcript);

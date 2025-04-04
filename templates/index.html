@@ -27,109 +27,101 @@
   </head>
   <body>
     <div class="container">
-      <header>
-        <h1><i class="fas fa-film"></i> Video Generator</h1>
-        <p>
-          Tải lên video hoặc nhập URL YouTube/TikTok và chọn phương pháp trích
-          xuất phù hợp
-        </p>
-        <div class="header-actions">
-          <button id="view-image-queue" class="queue-btn" style="display: none">
-            <i class="fas fa-layer-group"></i> Xem hàng đợi
-          </button>
-        </div>
-      </header>
-
       <main>
+        <button id="view-image-queue" class="queue-btn" style="display: none">
+          <i class="fas fa-layer-group"></i> Xem hàng đợi
+        </button>
+        <button id="home-btn" class="home-btn">
+          <i class="fas fa-home"></i> Trang chủ
+        </button>
         <section class="upload-section">
           <div class="upload-container" id="upload-container">
-            <div class="upload-tabs">
-              <div class="upload-tab active" data-tab="file-upload">
-                <i class="fas fa-file-video"></i> Tải lên File
+            <!-- Main Tabs -->
+            <div class="main-tabs">
+              <div class="main-tab active" data-tab="create-image">
+                <i class="fas fa-image"></i> Tạo ảnh
               </div>
-              <div class="upload-tab" data-tab="youtube-upload">
-                <i class="fab fa-youtube"></i> Từ YouTube
-              </div>
-              <div class="upload-tab" data-tab="tiktok-upload">
-                <i class="fab fa-tiktok"></i> Từ TikTok
-              </div>
-              <div class="upload-tab" data-tab="batch-images-upload">
-                <i class="fas fa-images"></i> Lấy prompt tạo video
+              <div class="main-tab" data-tab="create-video">
+                <i class="fas fa-video"></i> Tạo video
               </div>
             </div>
 
-            <div class="upload-content" id="file-upload">
-              <div class="upload-area" id="upload-area">
-                <div class="upload-icon">
-                  <i class="fas fa-cloud-upload-alt fa-3x"></i>
+            <!-- Create Image Tab Content -->
+            <div class="main-tab-content active" id="create-image">
+              <div class="upload-tabs">
+                <div class="upload-tab active" data-tab="file-upload">
+                  <i class="fas fa-file-video"></i> Tải lên File
                 </div>
-                <p>
-                  Kéo thả video vào đây hoặc
-                  <span class="browse-text">chọn file</span>
-                </p>
-                <p class="supported-formats">
-                  Hỗ trợ: MP4, AVI, MOV, MKV, WEBM
-                </p>
-                <input
-                  type="file"
-                  id="file-input"
-                  accept=".mp4,.avi,.mov,.mkv,.webm"
-                  hidden
-                />
-              </div>
-            </div>
-
-            <div
-              class="upload-content"
-              id="youtube-upload"
-              style="display: none"
-            >
-              <div class="youtube-form">
-                <div class="youtube-icon">
-                  <i class="fab fa-youtube fa-3x"></i>
+                <div class="upload-tab" data-tab="youtube-upload">
+                  <i class="fab fa-youtube"></i> Từ YouTube
                 </div>
-                <label for="youtube-url">Nhập URL video YouTube:</label>
-                <input
-                  type="url"
-                  id="youtube-url"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  class="youtube-input"
-                />
-                <p class="youtube-tip">
-                  <i class="fas fa-info-circle"></i> Hỗ trợ các URL từ
-                  youtube.com hoặc youtu.be
-                </p>
-              </div>
-            </div>
-
-            <div
-              class="upload-content"
-              id="tiktok-upload"
-              style="display: none"
-            >
-              <div class="tiktok-form">
-                <div class="tiktok-icon">
-                  <i class="fab fa-tiktok fa-3x"></i>
+                <div class="upload-tab" data-tab="tiktok-upload">
+                  <i class="fab fa-tiktok"></i> Từ TikTok
                 </div>
-                <label for="tiktok-url">Nhập URL video TikTok:</label>
-                <input
-                  type="url"
-                  id="tiktok-url"
-                  placeholder="https://www.tiktok.com/@username/video/..."
-                  class="tiktok-input"
-                />
-                <p class="tiktok-tip">
-                  <i class="fas fa-info-circle"></i> Hỗ trợ các URL từ
-                  tiktok.com hoặc vm.tiktok.com
-                </p>
+              </div>
+
+              <div class="upload-content" id="file-upload">
+                <div class="upload-area" id="upload-area">
+                  <div class="upload-icon">
+                    <i class="fas fa-cloud-upload-alt fa-2x"></i>
+                  </div>
+                  <p>
+                    Kéo thả video vào đây hoặc
+                    <span class="browse-text">chọn file</span>
+                  </p>
+                  <p class="supported-formats">
+                    Hỗ trợ: MP4, AVI, MOV, MKV, WEBM
+                  </p>
+                  <input
+                    type="file"
+                    id="file-input"
+                    accept=".mp4,.avi,.mov,.mkv,.webm"
+                    hidden
+                  />
+                </div>
+              </div>
+
+              <div
+                class="upload-content"
+                id="youtube-upload"
+                style="display: none"
+              >
+                <div class="youtube-form">
+                  <div class="youtube-icon">
+                    <i class="fab fa-youtube fa-2x"></i>
+                  </div>
+                  <label for="youtube-url">Nhập URL video YouTube:</label>
+                  <input
+                    type="url"
+                    id="youtube-url"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    class="youtube-input"
+                  />
+                </div>
+              </div>
+
+              <div
+                class="upload-content"
+                id="tiktok-upload"
+                style="display: none"
+              >
+                <div class="tiktok-form">
+                  <div class="tiktok-icon">
+                    <i class="fab fa-tiktok fa-2x"></i>
+                  </div>
+                  <label for="tiktok-url">Nhập URL video TikTok:</label>
+                  <input
+                    type="url"
+                    id="tiktok-url"
+                    placeholder="https://www.tiktok.com/@username/video/..."
+                    class="tiktok-input"
+                  />
+                </div>
               </div>
             </div>
 
-            <div
-              class="upload-content"
-              id="batch-images-upload"
-              style="display: none"
-            >
+            <!-- Create Video Tab Content -->
+            <div class="main-tab-content" id="create-video">
               <div class="batch-processing-container">
                 <div class="batch-upload-area" id="batch-upload-area">
                   <div class="upload-icon">
@@ -236,6 +228,9 @@
                     <button id="import-to-kling-btn" class="primary-btn">
                       <i class="fas fa-file-import"></i> Nhập vào Kling
                     </button>
+                    <button id="import-to-hailou-btn" class="primary-btn">
+                      <i class="fas fa-file-import"></i> Nhập vào Hailou
+                    </button>
                     <button id="download-text-only-btn" class="secondary-btn">
                       <i class="fas fa-file-alt"></i> Chỉ tải xuống file prompt
                     </button>
@@ -254,12 +249,26 @@
             <div class="method-selection">
               <h3><i class="fas fa-cogs"></i> Chọn phương pháp trích xuất</h3>
               <div class="method-options">
-                <div class="method-option active" data-method="method1">
+                <div class="method-option active" data-method="azure">
+                  <div class="method-icon">
+                    <i class="fab fa-microsoft"></i>
+                  </div>
+                  <div class="method-details">
+                    <h4>Phương pháp chính: Azure Video Indexer</h4>
+                    <p>Sử dụng Azure AI để phát hiện cảnh chính xác nhất.</p>
+                    <p>
+                      <i class="fas fa-check-circle"></i> Phù hợp với video phức
+                      tạp cần phân tích chuyên sâu.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="method-option" data-method="method1">
                   <div class="method-icon">
                     <i class="fas fa-chart-line"></i>
                   </div>
                   <div class="method-details">
-                    <h4>Phương pháp 1: Phân tích sự thay đổi</h4>
+                    <h4>Phương pháp dự phòng: Phân tích sự thay đổi</h4>
                     <p>
                       Phát hiện các khung hình có sự thay đổi lớn so với khung
                       hình trước đó.
@@ -267,39 +276,6 @@
                     <p>
                       <i class="fas fa-check-circle"></i> Phù hợp với video có
                       chuyển động liên tục.
-                    </p>
-                  </div>
-                </div>
-
-                <div class="method-option" data-method="method3">
-                  <div class="method-icon">
-                    <i class="fas fa-film"></i>
-                  </div>
-                  <div class="method-details">
-                    <h4>Phương pháp 2: Phát hiện Transition</h4>
-                    <p>
-                      Phát hiện và lọc ra các khung hình trong quá trình chuyển
-                      cảnh (fade in/out).
-                    </p>
-                    <p>
-                      <i class="fas fa-check-circle"></i> Phù hợp với video có
-                      hiệu ứng chuyển cảnh mờ dần.
-                    </p>
-                  </div>
-                </div>
-
-                <div class="method-option" data-method="azure">
-                  <div class="method-icon">
-                    <i class="fab fa-microsoft"></i>
-                  </div>
-                  <div class="method-details">
-                    <h4>Phương pháp 3: Azure Video Indexer</h4>
-                    <p>
-                      Sử dụng Azure AI để phát hiện cảnh và phiên âm chính xác.
-                    </p>
-                    <p>
-                      <i class="fas fa-check-circle"></i> Phù hợp với video phức
-                      tạp cần phân tích chuyên sâu.
                     </p>
                   </div>
                 </div>
@@ -364,38 +340,11 @@
                 </div>
               </div>
 
-              <!-- Tham số riêng cho phương pháp 3 -->
-              <div class="setting-group method3-setting" style="display: none">
-                <h4>Tham số phát hiện transition</h4>
-                <div class="setting-item">
-                  <label for="transition-threshold"
-                    >Ngưỡng phát hiện transition:</label
-                  >
-                  <div class="slider-container">
-                    <input
-                      type="range"
-                      id="transition-threshold"
-                      min="0.2"
-                      max="0.8"
-                      step="0.05"
-                      value="0.35"
-                      class="slider"
-                    />
-                    <span id="transition-threshold-value">0.35</span>
-                  </div>
-                </div>
-                <div class="threshold-info">
-                  <i class="fas fa-info-circle"></i> Ngưỡng thấp (0.2-0.3): Chỉ
-                  lọc các transition rõ ràng | Ngưỡng cao (0.6-0.8): Lọc cả
-                  transition nhẹ
-                </div>
-              </div>
-
               <!-- Azure-specific settings - initially hidden -->
               <div class="setting-group azure-setting" style="display: none">
                 <h4>Cài đặt Azure Video Indexer</h4>
                 <div class="form-group">
-                  <label for="azure-api-key">API Key:</label>
+                  <label for="azure-api-key">API KEY:</label>
                   <div class="password-field">
                     <input
                       type="password"
@@ -670,9 +619,7 @@
             <button id="extract-script-btn" class="secondary-btn">
               <i class="fas fa-file-alt"></i> Trích xuất kịch bản
             </button>
-            <button id="check-paths-btn" class="info-btn">
-              <i class="fas fa-search"></i> Kiểm tra đường dẫn ảnh
-            </button>
+
             <button id="new-video-btn" class="outline-btn">
               <i class="fas fa-video"></i> Xử lý video khác
             </button>
